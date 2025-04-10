@@ -9,6 +9,22 @@ import numpy.typing as npt
 import torch
 from torch import Tensor
 
+#################################################################################
+from cs336_basics.transformer_lm.my_generating_text import decoding
+from cs336_basics.transformer_lm.my_loss_optimizer import cross_entropy, AdamW, gradient_clipping
+from cs336_basics.transformer_lm.my_training_utils import data_loading, save_checkpoint, load_checkpoint, get_device, learning_rate_schedule
+from cs336_basics.transformer_lm.my_transformer_attention import causalMultiHeadSelfAttention, scaled_dot_product_attention
+from cs336_basics.transformer_lm.my_transformer_block_elements import softmax, gelu, positionwise_feedforward, RMSLayerNorm
+from cs336_basics.transformer_lm.my_transformer_block import transformer_block
+from cs336_basics.transformer_lm.my_transformer_language_model import TransformerLM
+from cs336_basics.tokenizer.my_tokenizer import Tokenizer
+from cs336_basics.transformer_lm.my_linear import Linear
+from cs336_basics.transformer_lm.my_embedding import Embedding
+from cs336_basics.transformer_lm.my_feedforward_swiglu import silu, swiglu
+
+from cs336_basics.tokenizer.my_tokenizer import Tokenizer
+from cs336_basics.tokenizer.tas_train_bpe import train_bpe
+
 
 
 def run_linear(
@@ -30,7 +46,10 @@ def run_linear(
         Float[Tensor, "... d_out"]: The transformed output of your linear module.
     """
 
-    raise NotImplementedError
+    return Linear(d_in=d_in,
+                  d_out=d_out,
+                  weights=weights,
+                  in_features=in_features).forward(x=in_features)
 
 
 def run_embedding(
@@ -52,7 +71,9 @@ def run_embedding(
         Float[Tensor, "... d_model"]: Batch of embeddings returned by your Embedding layer.
     """
 
-    raise NotImplementedError
+    return Embedding(vocab_size=vocab_size,
+                     d_model=d_model,
+                     weights=weights).forward(token_ids=token_ids)
 
 
 def run_swiglu(
@@ -84,7 +105,12 @@ def run_swiglu(
     # swiglu.w1.weight.data = w1_weight
     # swiglu.w2.weight.data = w2_weight
     # swiglu.w3.weight.data = w3_weight
-    raise NotImplementedError
+    return swiglu(d_model=d_model,
+                  d_ff=d_ff,
+                  w1_weight=w1_weight,
+                  w2_weight=w2_weight,
+                  w3_weight=w3_weight,
+                  in_features=in_features)
 
 
 def run_scaled_dot_product_attention(
@@ -379,7 +405,9 @@ def run_rmsnorm(
         Float[Tensor,"... d_model"]: Tensor of with the same shape as `in_features` with the output of running
         RMSNorm of the `in_features`.
     """
-    raise NotImplementedError
+    return RMSLayerNorm(d_model=d_model,
+                        eps=eps, 
+                        weights=weights).forward(x=in_features)
 
 
 def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
@@ -558,7 +586,9 @@ def get_tokenizer(
     Returns:
         A BPE tokenizer that uses the provided vocab, merges, and special tokens.
     """
-    raise NotImplementedError
+    return Tokenizer(vocab=vocab,
+                     merges=merges,
+                     special_tokens=special_tokens)
 
 
 def run_train_bpe(
@@ -588,4 +618,6 @@ def run_train_bpe(
                 representing that <token1> was merged with <token2>.
                 Merges are ordered by order of creation.
     """
-    raise NotImplementedError
+    return train_bpe(input_path=input_path, 
+                     vocab_size=vocab_size,
+                     special_tokens=special_tokens)
