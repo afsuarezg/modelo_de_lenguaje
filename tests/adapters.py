@@ -175,7 +175,7 @@ def run_multihead_self_attention(
                                         v_proj_weight=v_proj_weight,
                                         o_proj_weight=o_proj_weight,
                                         in_features=in_features, 
-                                        rope=None).multi_head_self_attention()
+                                        rope=False).multi_head_self_attention()
 
 
 def run_multihead_self_attention_with_rope(

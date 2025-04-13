@@ -73,7 +73,7 @@ class causalMultiHeadSelfAttention(nn.Module):
         return x.view(batch_size, seq_length, num_heads * depth)
     
 
-def scaled_dot_product_attention(
+def scaled_dot_product_attention_deprecated(
         K: torch.FloatTensor,
         Q: torch.FloatTensor,
         V: torch.FloatTensor,
@@ -133,6 +133,7 @@ def scaled_dot_product_attention(
     Returns:
         Float[Tensor, " ... queries d_v"]: Output of SDPA
     """
+    breakpoint()
     d_k=Q.shape[-1]
     scores = einsum(Q, K, "... queries d_k, ... keys d_k -> ... queries keys")/np.sqrt(d_k)
     # breakpoint()
@@ -164,11 +165,11 @@ class causalMultiHeadSelfAttention(nn.Module):
     def __init__(self,
                  d_model:int, 
                  num_heads: int, 
-                 q_proj_weight: Float[Tensor, " d_k d_in"],
-                 k_proj_weight: Float[Tensor, " d_k d_in"],
-                 v_proj_weight: Float[Tensor, " d_v d_in"],
-                 o_proj_weight: Float[Tensor, " d_model d_v"],
-                 in_features: Float[Tensor, " ... sequence_length d_in"],
+                 q_proj_weight: Float[Tensor, " d_model d_model"],
+                 k_proj_weight: Float[Tensor, " d_model d_model"],
+                 v_proj_weight: Float[Tensor, " d_model d_model"],
+                 o_proj_weight: Float[Tensor, " d_model d_o"],
+                 in_features: Float[Tensor, " ... sequence_length d_model"],
                  rope:bool=False,
                  max_seq_len:int=None,
                  token_positions:  Int[Tensor, " ... sequence_length"] | None = None,
@@ -177,31 +178,32 @@ class causalMultiHeadSelfAttention(nn.Module):
         super().__init__()
         # breakpoint()
         self.in_features=in_features
-        self.q_proj_weight=rearrange(q_proj_weight, "(d_h h) d_in -> d_in h d_h", h=num_heads) 
-        self.k_proj_weight=rearrange(k_proj_weight, "(d_h h) d_in -> d_in h d_h", h=num_heads) 
-        self.v_proj_weight=rearrange(v_proj_weight, "(d_h h) d_in -> d_in h d_h", h=num_heads) 
+        self.q_proj_weight=rearrange(q_proj_weight, "(d_k heads) d_model -> heads d_model d_k", heads=num_heads) 
+        self.k_proj_weight=rearrange(k_proj_weight, "(d_k heads) d_model -> heads d_model d_k", heads=num_heads) 
+        self.v_proj_weight=rearrange(v_proj_weight, "(d_v heads) d_model -> heads d_model d_v", heads=num_heads) 
+        breakpoint()
         self.o_proj_weight=o_proj_weight
         self.d_model=d_model
         self.num_heads=num_heads
         
-        self.d_k = q_proj_weight.shape[-2]
+        self.d_k = d_model/num_heads
         
         self.rope=rope
         if self.rope:
             self.theta=theta
             self.max_seq_len=max_seq_len
             self.rope_class = RotaryPositionalEmbedding(theta=theta,
-                                     d_k=self.d_k,
-                                     max_seq_len=max_seq_len)
+                                                        d_k=self.d_k,
+                                                        max_seq_len=max_seq_len)
             self.token_positions=token_positions
 
 
 
     def multi_head_self_attention(self)-> Float[Tensor, " ... sequence_length d_out"]:
         # breakpoint()
-        xq=einsum(self.in_features, self.q_proj_weight, "... sequence_length d_in, d_in h d_h -> ... h sequence_length d_h" )
-        xk=einsum(self.in_features, self.k_proj_weight, "... sequence_length d_in, d_in h d_h -> ... h sequence_length d_h" )
-        xv=einsum(self.in_features, self.v_proj_weight, "... sequence_length d_in, d_in h d_h -> ... h sequence_length d_h" )
+        xq=einsum(self.in_features, self.q_proj_weight, "... sequence_length d_model, heads d_model d_k -> ... heads sequence_length d_k" )
+        xk=einsum(self.in_features, self.k_proj_weight, "... sequence_length d_model, heads d_model d_k -> ... heads sequence_length d_k" )
+        xv=einsum(self.in_features, self.v_proj_weight, "... sequence_length d_model, heads d_model d_v -> ... heads sequence_length d_v" )
         
         # breakpoint()
         if self.rope: 
