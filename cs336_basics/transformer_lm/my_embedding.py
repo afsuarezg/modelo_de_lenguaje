@@ -1,5 +1,5 @@
 
-from einops import rearrange, einsum, reduce
+from einops import rearrange
 from jaxtyping import Float, Int
 import torch 
 from torch import Tensor

@@ -21,6 +21,7 @@ from cs336_basics.tokenizer.my_tokenizer import Tokenizer
 from cs336_basics.transformer_lm.my_linear import Linear
 from cs336_basics.transformer_lm.my_embedding import Embedding
 from cs336_basics.transformer_lm.my_feedforward_swiglu import silu, swiglu
+from cs336_basics.transformer_lm.my_rope import RotaryPositionalEmbedding
 
 from cs336_basics.tokenizer.my_tokenizer import Tokenizer
 from cs336_basics.tokenizer.tas_train_bpe import train_bpe
@@ -48,8 +49,7 @@ def run_linear(
 
     return Linear(d_in=d_in,
                   d_out=d_out,
-                  weights=weights,
-                  in_features=in_features).forward(x=in_features)
+                  weights=weights).forward(x=in_features)
 
 
 def run_embedding(
@@ -131,7 +131,10 @@ def run_scaled_dot_product_attention(
     Returns:
         Float[Tensor, " ... queries d_v"]: Output of SDPA
     """
-    raise NotImplementedError
+    return scaled_dot_product_attention(K=K, 
+                                        Q=Q,
+                                        V=V,
+                                        mask=mask)
 
 
 def run_multihead_self_attention(
@@ -165,7 +168,14 @@ def run_multihead_self_attention(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    raise NotImplementedError
+    return causalMultiHeadSelfAttention(d_model=d_model,
+                                        num_heads=num_heads,
+                                        q_proj_weight=q_proj_weight,
+                                        k_proj_weight=k_proj_weight,
+                                        v_proj_weight=v_proj_weight,
+                                        o_proj_weight=o_proj_weight,
+                                        in_features=in_features, 
+                                        rope=None).multi_head_self_attention()
 
 
 def run_multihead_self_attention_with_rope(
@@ -205,7 +215,17 @@ def run_multihead_self_attention_with_rope(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    raise NotImplementedError
+    return causalMultiHeadSelfAttention(d_model=d_model, 
+                                        num_heads=num_heads,
+                                        max_seq_len=max_seq_len,
+                                        theta=theta,
+                                        q_proj_weight=q_proj_weight,
+                                        k_proj_weight=k_proj_weight,
+                                        v_proj_weight=v_proj_weight,
+                                        o_proj_weight=o_proj_weight,
+                                        in_features=in_features,
+                                        token_positions=token_positions, 
+                                        rope=True).multi_head_self_attention()
 
 
 def run_rope(
@@ -227,7 +247,10 @@ def run_rope(
     Returns:
         Float[Tensor, " ... sequence_length d_k"]: Tensor with RoPEd input.
     """
-    raise NotImplementedError
+    return RotaryPositionalEmbedding(theta=theta,
+                                     d_k=d_k,
+                                     max_seq_len=max_seq_len).forward(x=in_query_or_key,
+                                                                      token_positions=token_positions)
 
 
 def run_transformer_block(
@@ -460,7 +483,8 @@ def run_softmax(in_features: Float[Tensor, " ..."], dim: int) -> Float[Tensor, "
         Float[Tensor, "..."]: Tensor of with the same shape as `in_features` with the output of
         softmax normalizing the specified `dim`.
     """
-    raise NotImplementedError
+    return softmax(in_features=in_features,
+                   dim=dim)
 
 
 def run_cross_entropy(inputs: Float[Tensor, " batch_size vocab_size"], targets: Int[Tensor, " batch_size"]) -> Float[Tensor, ""]:
@@ -476,7 +500,8 @@ def run_cross_entropy(inputs: Float[Tensor, " batch_size vocab_size"], targets: 
     Returns:
         Float[Tensor, ""]: The average cross-entropy loss across examples.
     """
-    raise NotImplementedError
+    return cross_entropy(inputs=inputs,
+                         targets=targets)
 
 
 def run_gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm: float) -> None:
@@ -488,14 +513,15 @@ def run_gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm:
 
     The gradients of the parameters (parameter.grad) should be modified in-place.
     """
-    raise NotImplementedError
+    return gradient_clipping(parameters=parameters,
+                             max_l2_norm=max_l2_norm)
 
 
 def get_adamw_cls() -> type[torch.optim.Optimizer]:
     """
     Returns a torch.optim.Optimizer that implements AdamW.
     """
-    raise NotImplementedError
+    return AdamW
 
 
 def run_get_lr_cosine_schedule(
@@ -523,7 +549,11 @@ def run_get_lr_cosine_schedule(
     Returns:
         Learning rate at the given iteration under the specified schedule.
     """
-    raise NotImplementedError
+    return learning_rate_schedule(it=it, 
+                                  max_learning_rate=max_learning_rate, 
+                                  min_learning_rate=min_learning_rate, 
+                                  warmup_iters=warmup_iters, 
+                                  cosine_cycle_iters=cosine_cycle_iters )
 
 
 def run_save_checkpoint(
@@ -542,7 +572,10 @@ def run_save_checkpoint(
             we've completed.
         out (str | os.PathLike | BinaryIO | IO[bytes]): Path or file-like object to serialize the model, optimizer, and iteration to.
     """
-    raise NotImplementedError
+    return save_checkpoint(model=model,
+                           optimizer=optimizer,
+                           iteration=iteration,
+                           out=out)
 
 
 def run_load_checkpoint(
@@ -563,7 +596,9 @@ def run_load_checkpoint(
     Returns:
         int: the previously-serialized number of iterations.
     """
-    raise NotImplementedError
+    return load_checkpoint(src=src,
+                           model=model,
+                           optimizer=optimizer)
 
 
 def get_tokenizer(
