@@ -133,7 +133,7 @@ def scaled_dot_product_attention(
     Returns:
         Float[Tensor, " ... queries d_v"]: Output of SDPA
     """
-    breakpoint()
+    # breakpoint()
     d_k=Q.shape[-1]
     scores = einsum(Q, K, "... queries d_k, ... keys d_k -> ... queries keys")/np.sqrt(d_k)
     # breakpoint()
@@ -142,11 +142,12 @@ def scaled_dot_product_attention(
     # mask = torch.tensor(np.tril(mask))
         mask = torch.ones_like(input=scores, dtype=torch.int).triu(diagonal=1)
         # mask = torch.triu(input=scores, diagonal=1)
+    # breakpoint()
+    # scores_masked = scores.masked_fill(mask==1, float('-inf'))
+    scores_masked = scores.masked_fill(mask!=0, float('-inf'))
+    # scores_masked = scores.masked_fill(mask==0, float('-inf')) # con este funciona para la función con una sola cabeza
 
-    scores_masked = scores.masked_fill(mask==1, float('-inf'))
-
-    scores_softmaxed = softmax(in_features=scores_masked,
-                     dim=-1)
+    scores_softmaxed = softmax(in_features=scores_masked, dim=-1)
     # breakpoint()
     # result = einsum(scores_softmaxed, V, "... q k, ... k d -> ... q d")
     result = einsum(scores_softmaxed, V, "... queries keys, ... keys d_v -> ... queries d_v")
@@ -181,7 +182,7 @@ class causalMultiHeadSelfAttention(nn.Module):
         self.q_proj_weight=rearrange(q_proj_weight, "(d_k heads) d_model -> heads d_model d_k", heads=num_heads) 
         self.k_proj_weight=rearrange(k_proj_weight, "(d_k heads) d_model -> heads d_model d_k", heads=num_heads) 
         self.v_proj_weight=rearrange(v_proj_weight, "(d_v heads) d_model -> heads d_model d_v", heads=num_heads) 
-        breakpoint()
+        # breakpoint()
         self.o_proj_weight=o_proj_weight
         self.d_model=d_model
         self.num_heads=num_heads
@@ -192,9 +193,7 @@ class causalMultiHeadSelfAttention(nn.Module):
         if self.rope:
             self.theta=theta
             self.max_seq_len=max_seq_len
-            self.rope_class = RotaryPositionalEmbedding(theta=theta,
-                                                        d_k=self.d_k,
-                                                        max_seq_len=max_seq_len)
+            self.rope_class = RotaryPositionalEmbedding(theta=theta, d_k=self.d_k, max_seq_len=max_seq_len)
             self.token_positions=token_positions
 
 
@@ -204,16 +203,69 @@ class causalMultiHeadSelfAttention(nn.Module):
         xq=einsum(self.in_features, self.q_proj_weight, "... sequence_length d_model, heads d_model d_k -> ... heads sequence_length d_k" )
         xk=einsum(self.in_features, self.k_proj_weight, "... sequence_length d_model, heads d_model d_k -> ... heads sequence_length d_k" )
         xv=einsum(self.in_features, self.v_proj_weight, "... sequence_length d_model, heads d_model d_v -> ... heads sequence_length d_v" )
-        
+        # breakpoint()        
         # breakpoint()
         if self.rope: 
             xq=self.rope_class.forward(x=xq, token_positions=self.token_positions)
             xk=self.rope_class.forward(x=xk, token_positions=self.token_positions)
 
-        multihead=scaled_dot_product_attention(Q=xq,
-                                               K=xk, 
-                                               V=xv)
+        multihead=scaled_dot_product_attention(Q=xq, K=xk, V=xv)
+        breakpoint()
         multihead=rearrange(multihead, "... heads seq_len d_emb -> ... seq_len (heads d_emb)") 
         w0multihead=einsum(self.o_proj_weight, multihead, " d_k d_out, ... seq_len d_k -> ... seq_len d_out ")
         # breakpoint()
         return w0multihead
+
+
+def multihead_self_attention_chatgpt(
+    d_model: int,
+    num_heads: int,
+    q_proj_weight: Float[Tensor, " d_k d_in"],
+    k_proj_weight: Float[Tensor, " d_k d_in"],
+    v_proj_weight: Float[Tensor, " d_v d_in"],
+    o_proj_weight: Float[Tensor, " d_model d_v"],
+    in_features: Float[Tensor, " ... seq_len d_in"],
+) -> Float[Tensor, " ... seq_len d_model"]:
+    """
+    Implements batched multi-head self-attention.
+    """
+    assert d_model % num_heads == 0, "d_model must be divisible by num_heads"
+    *batch_dims, seq_len, d_in = in_features.shape
+    d_k = q_proj_weight.shape[0]
+    d_v = v_proj_weight.shape[0]
+    d_head = d_k // num_heads
+    d_out = d_model
+
+    # Project input to Q, K, V using matrix multiplication
+    Q = torch.matmul(in_features, q_proj_weight.T)  # [..., seq_len, d_k]
+    K = torch.matmul(in_features, k_proj_weight.T)  # [..., seq_len, d_k]
+    V = torch.matmul(in_features, v_proj_weight.T)  # [..., seq_len, d_v]
+
+    # Reshape Q, K, V for multi-head attention
+    def split_heads(x, d_split):
+        # Input shape: [..., seq_len, d_split]
+        # Output shape: [..., num_heads, seq_len, d_head]
+        return x.view(*batch_dims, seq_len, num_heads, d_split // num_heads).transpose(-3, -2)
+
+    Q = split_heads(Q, d_k)
+    K = split_heads(K, d_k)
+    V = split_heads(V, d_v)
+
+    # Scaled dot-product attention
+    scores = torch.matmul(Q, K.transpose(-1, -2)) / (d_head ** 0.5)  # [..., num_heads, seq_len, seq_len]
+    attn_weights = softmax(scores, dim=-1)
+    attn_output = torch.matmul(attn_weights, V)  # [..., num_heads, seq_len, d_head]
+
+    # Combine heads
+    def combine_heads(x):
+        # Input shape: [..., num_heads, seq_len, d_head]
+        # Output shape: [..., seq_len, d_k or d_v]
+        x = x.transpose(-3, -2)  # [..., seq_len, num_heads, d_head]
+        return x.reshape(*batch_dims, seq_len, -1)  # combine heads
+
+    combined = combine_heads(attn_output)  # [..., seq_len, d_v]
+
+    # Final linear projection
+    output = torch.matmul(combined, o_proj_weight.T)  # [..., seq_len, d_model]
+
+    return output
