@@ -134,6 +134,7 @@ def scaled_dot_product_attention(
         Float[Tensor, " ... queries d_v"]: Output of SDPA
     """
     # breakpoint()
+    # queries, keys and values should be all equal to seq_len.
     d_k=Q.shape[-1]
     scores = einsum(Q, K, "... queries d_k, ... keys d_k -> ... queries keys")/np.sqrt(d_k)
     # breakpoint()
@@ -166,11 +167,16 @@ class causalMultiHeadSelfAttention(nn.Module):
     def __init__(self,
                  d_model:int, 
                  num_heads: int, 
-                 q_proj_weight: Float[Tensor, " d_model d_model"],
-                 k_proj_weight: Float[Tensor, " d_model d_model"],
-                 v_proj_weight: Float[Tensor, " d_model d_model"],
-                 o_proj_weight: Float[Tensor, " d_model d_o"],
-                 in_features: Float[Tensor, " ... sequence_length d_model"],
+                 #  q_proj_weight: Float[Tensor, " d_model d_model"],
+                 #  k_proj_weight: Float[Tensor, " d_model d_model"],
+                 #  v_proj_weight: Float[Tensor, " d_model d_model"],
+                 #  o_proj_weight: Float[Tensor, " d_model d_o"],
+                 #  in_features: Float[Tensor, " ... sequence_length d_model"],
+                 q_proj_weight: Float[Tensor, " d_k d_in"],
+                 k_proj_weight: Float[Tensor, " d_k d_in"],
+                 v_proj_weight: Float[Tensor, " d_v d_in"],
+                 o_proj_weight: Float[Tensor, " d_model d_v"],
+                 in_features: Float[Tensor, " ... sequence_length d_in"],
                  rope:bool=False,
                  max_seq_len:int=None,
                  token_positions:  Int[Tensor, " ... sequence_length"] | None = None,
@@ -178,10 +184,11 @@ class causalMultiHeadSelfAttention(nn.Module):
                  ):
         super().__init__()
         # breakpoint()
+        #d_model=d_in=lenght of each word embedding
         self.in_features=in_features
-        self.q_proj_weight=rearrange(q_proj_weight, "(d_k heads) d_model -> heads d_model d_k", heads=num_heads) 
-        self.k_proj_weight=rearrange(k_proj_weight, "(d_k heads) d_model -> heads d_model d_k", heads=num_heads) 
-        self.v_proj_weight=rearrange(v_proj_weight, "(d_v heads) d_model -> heads d_model d_v", heads=num_heads) 
+        self.q_proj_weight=rearrange(q_proj_weight, "(d_k_h heads) d_in -> heads d_in d_k_h", heads=num_heads) 
+        self.k_proj_weight=rearrange(k_proj_weight, "(d_k_h heads) d_in -> heads d_in d_k_h", heads=num_heads) 
+        self.v_proj_weight=rearrange(v_proj_weight, "(d_v_h heads) d_in -> heads d_in d_v_h", heads=num_heads) 
         # breakpoint()
         self.o_proj_weight=o_proj_weight
         self.d_model=d_model
@@ -200,9 +207,9 @@ class causalMultiHeadSelfAttention(nn.Module):
 
     def multi_head_self_attention(self)-> Float[Tensor, " ... sequence_length d_out"]:
         # breakpoint()
-        xq=einsum(self.in_features, self.q_proj_weight, "... sequence_length d_model, heads d_model d_k -> ... heads sequence_length d_k" )
-        xk=einsum(self.in_features, self.k_proj_weight, "... sequence_length d_model, heads d_model d_k -> ... heads sequence_length d_k" )
-        xv=einsum(self.in_features, self.v_proj_weight, "... sequence_length d_model, heads d_model d_v -> ... heads sequence_length d_v" )
+        xq=einsum(self.in_features, self.q_proj_weight, "batch sequence_length d_in, heads d_in d_k_h -> batch heads sequence_length d_k_h" )
+        xk=einsum(self.in_features, self.k_proj_weight, "batch sequence_length d_in, heads d_in d_k_h -> batch heads sequence_length d_k_h" )
+        xv=einsum(self.in_features, self.v_proj_weight, "batch sequence_length d_in, heads d_in d_v_h -> batch heads sequence_length d_v_h" )
         # breakpoint()        
         # breakpoint()
         if self.rope: 
@@ -211,10 +218,10 @@ class causalMultiHeadSelfAttention(nn.Module):
 
         multihead=scaled_dot_product_attention(Q=xq, K=xk, V=xv)
         breakpoint()
-        multihead=rearrange(multihead, "... heads seq_len d_emb -> ... seq_len (heads d_emb)") 
-        w0multihead=einsum(self.o_proj_weight, multihead, " d_k d_out, ... seq_len d_k -> ... seq_len d_out ")
+        multihead=rearrange(multihead, "batch heads seq_len d_v_h -> batch seq_len (heads d_v_h)") 
+        multiheadW0=einsum(multihead, self.o_proj_weight,  "  batch seq_len d_v, d_v d_out -> batch seq_len d_out ")
         # breakpoint()
-        return w0multihead
+        return multiheadW0
 
 
 def multihead_self_attention_chatgpt(
