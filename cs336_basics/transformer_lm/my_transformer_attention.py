@@ -18,6 +18,7 @@ from common import FIXTURES_PATH
 
 from cs336_basics.transformer_lm.my_transformer_block_elements import softmax, RMSLayerNorm
 from cs336_basics.transformer_lm.my_rope import RotaryPositionalEmbedding
+from cs336_basics.transformer_lm.my_linear import Linear
 
 
 class causalMultiHeadSelfAttention(nn.Module): 
@@ -140,20 +141,75 @@ def scaled_dot_product_attention(
     # breakpoint()
 
     if mask == None:
-    # mask = torch.tensor(np.tril(mask))
-        mask = torch.ones_like(input=scores, dtype=torch.int).triu(diagonal=1)
-        # mask = torch.triu(input=scores, diagonal=1)
+        mask = 1 - torch.ones_like(input=scores, dtype=torch.int).triu(diagonal=1)
     # breakpoint()
-    # scores_masked = scores.masked_fill(mask==1, float('-inf'))
-    scores_masked = scores.masked_fill(mask!=0, float('-inf'))
-    # scores_masked = scores.masked_fill(mask==0, float('-inf')) # con este funciona para la función con una sola cabeza
+    scores_masked = scores.masked_fill(mask==0, float('-inf'))
 
     scores_softmaxed = softmax(in_features=scores_masked, dim=-1)
     # breakpoint()
-    # result = einsum(scores_softmaxed, V, "... q k, ... k d -> ... q d")
     result = einsum(scores_softmaxed, V, "... queries keys, ... keys d_v -> ... queries d_v")
 
     return result 
+
+
+
+def scaled_dot_product_attention_(
+    K: torch.FloatTensor,
+    Q: torch.FloatTensor,
+    V: torch.FloatTensor,
+    mask: Optional[torch.Tensor] = None,
+    pdrop: Optional[float] = None,
+):
+    """Scaled dot-product attention.
+
+    This function implements Eq. 1 of the Transformer paper.
+
+    Args:
+        K: torch.FloatTensor
+            Tensor with attention keys. Shape is
+            (batch_size, ..., seq_len, key_dimension), where
+            "..." is optional and represents any number of other
+            batch dimensions (e.g., num_heads).
+        Q: torch.FloatTensor
+            Tensor with attention queries. Shape is
+            (batch_size, ..., seq_len, key_dimension), where
+            "..." is optional and represents any number of other
+            batch dimensions (e.g., num_heads).
+        V: torch.FloatTensor
+            Tensor with attention values. Shape is
+            (batch_size, ..., seq_len, value_dimension), where
+            "..." is optional and represents any number of other
+            batch dimensions (e.g., num_heads).
+        mask: Optional[torch.BoolTensor]
+            An (optional) mask of shape (seq_len, seq_len).
+            Attention scores for positions with a mask value of `True` should
+            be masked out, i.e., not affect the softmaxed attention probabilities.
+        pdrop: Optional[float], default is None.
+            If given, drop-out the attention probabilities (the softmax-normalized
+            attention scores) with this rate.
+
+    Returns:
+        torch.FloatTensor of shape (batch_size, ..., seq_len, value_dimension)
+        with the output of running your scaled dot product attention
+        implementation with the provided key, query, and value tensors.
+    """
+    d_k = K.size(-1)
+    # Shape: (batch_size, sequence_length, sequence_length)
+    attention_scores = (Q @ K.transpose(-2, -1)) / math.sqrt(d_k)
+    # Apply the mask, if we have one.
+    # breakpoint()
+    if mask is not None:
+        attention_scores = attention_scores.masked_fill(~mask, float("-inf"))
+    attention_weights = softmax(attention_scores, dim=-1)
+    # NOTE: This dropout isn't really mentioned in the paper (besides the start of section 6.3,
+    # "We performed only a small number of experiments to select the dropout, both
+    # attention and residual"), but it appears in T2T.
+    # https://stats.stackexchange.com/questions/509798/attention-dropout-where-was-it-proposed-used-first
+    if pdrop is not None:
+        attention_weights = F.dropout(attention_weights, p=pdrop)
+    # Shape: (batch_size, sequence_length, d_v)
+    return attention_weights @ V
+
 
 
 class causalMultiHeadSelfAttention(nn.Module): 
@@ -163,39 +219,35 @@ class causalMultiHeadSelfAttention(nn.Module):
     implementation. This implementation should handle the key, query, and value projections
     for all heads in a single matrix multiply.   
     """
-
     def __init__(self,
-                 d_model:int, 
-                 num_heads: int, 
-                 #  q_proj_weight: Float[Tensor, " d_model d_model"],
-                 #  k_proj_weight: Float[Tensor, " d_model d_model"],
-                 #  v_proj_weight: Float[Tensor, " d_model d_model"],
-                 #  o_proj_weight: Float[Tensor, " d_model d_o"],
-                 #  in_features: Float[Tensor, " ... sequence_length d_model"],
-                 q_proj_weight: Float[Tensor, " d_k d_in"],
-                 k_proj_weight: Float[Tensor, " d_k d_in"],
-                 v_proj_weight: Float[Tensor, " d_v d_in"],
-                 o_proj_weight: Float[Tensor, " d_model d_v"],
-                 in_features: Float[Tensor, " ... sequence_length d_in"],
-                 rope:bool=False,
-                 max_seq_len:int=None,
-                 token_positions:  Int[Tensor, " ... sequence_length"] | None = None,
-                 theta: float=1000.0, 
-                 ):
+            d_model:int, 
+            num_heads: int, 
+            q_proj_weight: Float[Tensor, " d_k d_in"],
+            k_proj_weight: Float[Tensor, " d_k d_in"],
+            v_proj_weight: Float[Tensor, " d_v d_in"],
+            o_proj_weight: Float[Tensor, " d_model d_v"],
+            in_features: Float[Tensor, " ... sequence_length d_in"],
+            rope:bool=False,
+            max_seq_len:int=None,
+            token_positions:  Int[Tensor, " ... sequence_length"] | None = None,
+            theta: float=1000.0):
+        
         super().__init__()
         # breakpoint()
         #d_model=d_in=lenght of each word embedding
+        assert q_proj_weight.shape[-1] == d_model
+        assert q_proj_weight.shape[-2]%num_heads == 0
+
+        self.batch_size=in_features.shape[0]
         self.in_features=in_features
-        self.q_proj_weight=rearrange(q_proj_weight, "(d_k_h heads) d_in -> heads d_in d_k_h", heads=num_heads) 
-        self.k_proj_weight=rearrange(k_proj_weight, "(d_k_h heads) d_in -> heads d_in d_k_h", heads=num_heads) 
-        self.v_proj_weight=rearrange(v_proj_weight, "(d_v_h heads) d_in -> heads d_in d_v_h", heads=num_heads) 
-        # breakpoint()
+        self.q_proj_weight=q_proj_weight
+        self.k_proj_weight=k_proj_weight
+        self.v_proj_weight=v_proj_weight
         self.o_proj_weight=o_proj_weight
         self.d_model=d_model
         self.num_heads=num_heads
         
         self.d_k = d_model/num_heads
-        
         self.rope=rope
         if self.rope:
             self.theta=theta
@@ -203,7 +255,74 @@ class causalMultiHeadSelfAttention(nn.Module):
             self.rope_class = RotaryPositionalEmbedding(theta=theta, d_k=self.d_k, max_seq_len=max_seq_len)
             self.token_positions=token_positions
 
+    def multi_head_self_attention(self)-> Float[Tensor, " ... sequence_length d_out"]:
+        # breakpoint()
+        xq=einsum(self.in_features, self.q_proj_weight, "batch sequence_length d_in, d_k d_in -> batch sequence_length d_k" )
+        xk=einsum(self.in_features, self.k_proj_weight, "batch sequence_length d_in, d_q d_in -> batch sequence_length d_q" )
+        xv=einsum(self.in_features, self.v_proj_weight, "batch sequence_length d_in, d_v d_in -> batch sequence_length d_v" )
+        breakpoint()
+        xq=rearrange(xq, "batch sequence_length (heads d_k_h) -> batch heads sequence_length d_k_h", heads=self.num_heads)
+        xk=rearrange(xk, "batch sequence_length (heads d_k_h) -> batch heads sequence_length d_k_h", heads=self.num_heads)
+        xv=rearrange(xv, "batch sequence_length (heads d_k_v) -> batch heads sequence_length d_k_v", heads=self.num_heads)
+        # xq=einsum(self.in_features, self.q_proj_weight, "batch sequence_length d_in, d_k d_in -> batch heads sequence_length d_k_h" )
+        # xk=einsum(self.in_features, self.k_proj_weight, "batch sequence_length d_in, d_k d_in -> batch heads sequence_length d_k_h" )
+        # xv=einsum(self.in_features, self.v_proj_weight, "batch sequence_length d_in, d_k d_in -> batch heads sequence_length d_v_h" )
+        # xq=einsum(self.in_features, self.q_proj_weight, "batch sequence_length d_in, heads d_k_h d_in -> batch heads sequence_length d_k_h" )
+        # xk=einsum(self.in_features, self.k_proj_weight, "batch sequence_length d_in, heads d_k_h d_in -> batch heads sequence_length d_k_h" )
+        # xv=einsum(self.in_features, self.v_proj_weight, "batch sequence_length d_in, heads d_k_h d_in -> batch heads sequence_length d_v_h" )
+        # breakpoint()        
+        if self.rope: 
+            xq=self.rope_class.forward(x=xq, token_positions=self.token_positions)
+            xk=self.rope_class.forward(x=xk, token_positions=self.token_positions)
 
+        multihead=scaled_dot_product_attention(Q=xq, K=xk, V=xv)
+        # breakpoint()
+        multihead=rearrange(multihead, "batch heads seq_len d_v_h -> batch seq_len (heads d_v_h)") 
+        multiheadW0=einsum(multihead, self.o_proj_weight,  "batch seq_len d_v, d_v d_out -> batch seq_len d_out ")
+        # breakpoint()
+        return multiheadW0
+
+
+class causalMultiHeadSelfAttention__(nn.Module): 
+    """
+    Given the key, query, and value projection weights of a naive unbatched
+    implementation of multi-head attention, return the output of an optimized batched
+    implementation. This implementation should handle the key, query, and value projections
+    for all heads in a single matrix multiply.   
+    """
+    def __init__(self,
+            d_model:int, 
+            num_heads: int, 
+            q_proj_weight: Float[Tensor, " d_k d_in"],
+            k_proj_weight: Float[Tensor, " d_k d_in"],
+            v_proj_weight: Float[Tensor, " d_v d_in"],
+            o_proj_weight: Float[Tensor, " d_model d_v"],
+            in_features: Float[Tensor, " ... sequence_length d_in"],
+            rope:bool=False,
+            max_seq_len:int=None,
+            token_positions:  Int[Tensor, " ... sequence_length"] | None = None,
+            theta: float=1000.0, 
+            ):
+        super().__init__()
+        # breakpoint()
+        #d_model=d_in=lenght of each word embedding
+        self.in_features=in_features
+        self.q_proj_weight=rearrange(q_proj_weight, "(heads d_k_h) d_in -> heads d_k_h d_in", heads=num_heads) 
+        self.k_proj_weight=rearrange(k_proj_weight, "(heads d_k_h) d_in -> heads d_k_h d_in", heads=num_heads) 
+        self.v_proj_weight=rearrange(v_proj_weight, "(heads d_v_h) d_in -> heads d_v_h d_in", heads=num_heads) 
+        # breakpoint()
+        self.o_proj_weight=o_proj_weight
+        self.d_model=d_model
+        self.num_heads=num_heads
+        
+        self.d_k = d_model/num_heads
+        
+        if rope:
+            self.rope=rope
+            self.theta=theta
+            self.max_seq_len=max_seq_len
+            self.rope_class = RotaryPositionalEmbedding(theta=theta, d_k=self.d_k, max_seq_len=max_seq_len)
+            self.token_positions=token_positions
 
     def multi_head_self_attention(self)-> Float[Tensor, " ... sequence_length d_out"]:
         # breakpoint()
@@ -211,7 +330,6 @@ class causalMultiHeadSelfAttention(nn.Module):
         xk=einsum(self.in_features, self.k_proj_weight, "batch sequence_length d_in, heads d_in d_k_h -> batch heads sequence_length d_k_h" )
         xv=einsum(self.in_features, self.v_proj_weight, "batch sequence_length d_in, heads d_in d_v_h -> batch heads sequence_length d_v_h" )
         # breakpoint()        
-        # breakpoint()
         if self.rope: 
             xq=self.rope_class.forward(x=xq, token_positions=self.token_positions)
             xk=self.rope_class.forward(x=xk, token_positions=self.token_positions)
@@ -219,9 +337,167 @@ class causalMultiHeadSelfAttention(nn.Module):
         multihead=scaled_dot_product_attention(Q=xq, K=xk, V=xv)
         breakpoint()
         multihead=rearrange(multihead, "batch heads seq_len d_v_h -> batch seq_len (heads d_v_h)") 
-        multiheadW0=einsum(multihead, self.o_proj_weight,  "  batch seq_len d_v, d_v d_out -> batch seq_len d_out ")
+        multiheadW0=einsum(multihead, self.o_proj_weight,  "batch seq_len d_v, d_v d_out -> batch seq_len d_out ")
         # breakpoint()
         return multiheadW0
+
+class CausalMultiHeadSelfAttention_noneinops(nn.Module):
+    """Multi-Head Self-Attention
+
+    This function implements section 3.2.2 of the Transformer paper. In particular,
+    given an input tensor of shape `(batch_size, sequence_length, d_model)`, we project
+    it to create queries, keys, and values, and then perform causl multi-headed attention with
+    those queries, keys, and values.
+
+    Args:
+        d_model: int
+            The dimensionality of the model embeddings and sublayer outputs.
+        num_heads: int
+            Number of heads to use in multi-headed attention. `d_model` must be
+            evenly divisible by `num_heads`.
+        attn_pdrop: Optional[float], default is None.
+            If given, drop-out the attention probabilities (the softmax-normalized
+            attention scores) with this rate.
+
+    Returns:
+        FloatTensor of shape `(batch_size, sequence_length, d_model)`.
+    """
+
+    def __init__(
+            self,
+            d_model: int,
+            num_heads: int,
+            q_proj_weight: Float[Tensor, " d_k d_in"],
+            k_proj_weight: Float[Tensor, " d_k d_in"],
+            v_proj_weight: Float[Tensor, " d_v d_in"],
+            o_proj_weight: Float[Tensor, " d_model d_v"],
+            in_features: Float[Tensor, " ... sequence_length d_in"],
+            rope:bool=False,
+            max_seq_len:int=None,
+            token_positions:  Int[Tensor, " ... sequence_length"] | None = None,
+            theta: float=1000.0):
+
+        super().__init__()
+        assert d_model % num_heads == 0
+        self.d_model = d_model
+        self.num_heads = num_heads
+        self.in_features=in_features
+        self.attn_pdrop=None
+        self.d_k = int(d_model / num_heads)
+        self.d_v = self.d_k
+
+        self.q_proj_weight=q_proj_weight
+        self.k_proj_weight=k_proj_weight
+        self.v_proj_weight=v_proj_weight
+
+        # W_{O} in the Transformer paper.
+        self.output_proj_weight=o_proj_weight
+        
+        if rope:
+            self.rope=rope
+            self.theta=theta
+            self.max_seq_len=max_seq_len
+            self.rope_class = RotaryPositionalEmbedding(theta=theta, d_k=self.d_k, max_seq_len=max_seq_len)
+            self.token_positions=token_positions
+
+    def scaled_dot_product_attention(self,
+                    K: torch.FloatTensor,
+                    Q: torch.FloatTensor,
+                    V: torch.FloatTensor,
+                    mask: Optional[torch.BoolTensor] = None,
+                    pdrop: Optional[float] = None,
+                ) -> torch.FloatTensor:
+        """Given key (K), query (Q), and value (V) tensors, return the output of your scaled dot product attention implementation.
+        Args:
+            K: torch.FloatTensor
+                Tensor with attention keys. Shape is (batch_size, ..., seq_len, key_dimension), where
+                "..." is optional and represents any number of other batch dimensions (e.g., num_heads).
+            Q: torch.FloatTensor
+                Tensor with attention queries. Shape is (batch_size, ..., seq_len, key_dimension), where
+                "..." is optional and represents any number of other batch dimensions (e.g., num_heads).
+            V: torch.FloatTensor
+                Tensor with attention values. Shape is (batch_size, ..., seq_len, value_dimension), where
+                "..." is optional and represents any number of other batch dimensions (e.g., num_heads).
+            mask: Optional[torch.BoolTensor]
+                An (optional) mask of shape (seq_len, seq_len).
+                Attention scores for positions with a mask value of `True` should
+                be masked out, i.e., not affect the softmaxed attention probabilities.
+            pdrop: Optional[float], default is None.
+                If given, drop-out the attention probabilities (the softmax-normalized
+                attention scores) with this rate.
+
+        Returns:
+            torch.FloatTensor of shape (batch_size, ..., seq_len, value_dimension)
+            with the output of running your scaled dot product attention
+            implementation with the provided key, query, and value tensors.
+        """
+        # Calculate the dot product between Q and K transpose
+        scores=torch.matmul(Q, K.transpose(-2,-1))
+        # Scale the scores by the square root of the key dimension
+        d_k= K.size(-1)
+        scores = scores / torch.sqrt(torch.tensor(d_k, dtype=torch.float32))
+
+        # Apply mask (if provided)
+        if mask is not None:
+            scores = scores.masked_fill(mask, float('-inf'))
+
+        # Apply softmax to get the attention probabilities
+        attention_probs = softmax(scores, dim=-1)
+
+        # Apply dropout to attention probabilities (if pdrop is provided)
+        if pdrop is not None:
+            attention_probs = F.dropout(attention_probs, p=pdrop)
+
+        # Multiply the attention probabilities with the value tensor to get the output
+        output = torch.matmul(attention_probs, V)
+
+        return output
+
+
+    def forward(self, x: torch.FloatTensor):
+        """
+        Args:
+            x: FloatTensor of shape `(batch_size, sequence_length, d_model)`.
+                The input to perform multi-headed self-attention on.
+
+        Returns:
+            FloatTensor of shape `(batch_size, sequence_length, d_model)`.
+        """
+        batch_size, sequence_length, d_model = x.size()
+        assert d_model == self.d_model
+
+        # Project the keys, queries, and values for grouped-query attention.
+        # Q is of shape (batch_size, seq_len, num_heads * key_dim)
+        Q = torch.matmul(x, self.q_proj_weight.transpose(-1,-2))
+        # Q = self.q_proj(x)
+        # K is of shape (batch_size, seq_len, num_key_value_heads * key_dim)
+        K = torch.matmul(x, self.k_proj_weight.transpose(-1,-2))
+        # K = self.k_proj(x)
+        # V is of shape (batch_size, seq_len, num_key_value_heads * key_dim)
+        V = torch.matmul(x, self.v_proj_weight.transpose(-1,-2))
+        # V = self.v_proj(x)
+
+        # Reshape Q, K, V to (batch_size, num_heads, seq_len, d_k).
+        # First, we reshape from (batch_size, seq_len, d_model) to (batch_size, seq_len, num_heads, d_k)
+        # Then, we transpose to go from (batch_size, seq_len, num_heads, d_k) to (batch_size, num_heads, seq_len, d_k)
+        Q = Q.view(batch_size, sequence_length, self.num_heads, self.d_k).transpose(1, 2)
+        K = K.view(batch_size, sequence_length, self.num_heads, self.d_k).transpose(1, 2)
+        V = V.view(batch_size, sequence_length, self.num_heads, self.d_k).transpose(1, 2)
+        # TODO(nfliu): check if register_buffer is faster?
+        causal_mask = torch.triu(torch.ones(sequence_length, sequence_length, device=x.device), diagonal=1).bool()
+        # Shape: (batch_size, num_heads, sequence_length, d_k)
+        attn_output = self.scaled_dot_product_attention(K=K, Q=Q, V=V, mask=causal_mask)
+        # Now, we need to "concat" the outputs of the different heads by reshaping to
+        # (batch_size, sequence_length, num_heads * d_v).
+        # First, we need to undo the earlier transpose to go from (batch_size, num_heads, sequence_length, d_v)
+        # to (batch_size, sequence_length, num_heads, d_v)
+        # Then, we combine the last two dimensions via reshaping to (batch_size, sequence_length, num_heads * d_v)
+        attn_output = (attn_output.transpose(1, 2).contiguous().view(batch_size, sequence_length, self.d_v * self.num_heads))
+        # Apply the output projection
+        # output = self.output_proj(attn_output)
+        output = torch.matmul(attn_output, self.output_proj_weight)
+        return output
+
 
 
 def multihead_self_attention_chatgpt(

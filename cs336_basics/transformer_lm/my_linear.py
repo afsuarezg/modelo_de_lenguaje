@@ -14,28 +14,19 @@ class Linear(torch.nn.Module):
                   device: torch.device|None=None,
                   dtype: torch.dtype|None=None):
         super().__init__()
-
+        assert weights.shape == (d_out, d_in)
+        
         self.device=device
         self.dtype=dtype
         # weights=torch.tensor(weights, dtype=dtype,device=device)
         weights=weights.to(dtype=dtype, device=device)
-        self.weights_t=torch.nn.Parameter(rearrange(weights, 
-                                                    "d_out d_in-> d_in d_out"))
-
-        # w = torch.empty(d_in, d_out)
-        # variance=2/(d_in+d_out)
-        # cutoff=3*np.sqrt(variance)
-        # self.weights_t=torch.nn.Parameter(torch.nn.init.trunc_normal_(self.weights_t, 
-        #                                                        mean=0,
-        #                                                        std=np.sqrt(variance),
-        #                                                        a=-cutoff,
-        #                                                        b=cutoff))
+        self.weights_t=torch.nn.Parameter(rearrange(weights, "... d_out d_in-> ... d_in d_out"))
 
     def forward(self, x:torch.Tensor)-> torch.Tensor:
         # x = rearrange(x, "batch seq d_in -> batch d_in seq")
         # breakpoint()
         # Y=einsum(x, self.weights_t, "batch sequence d_in, d_out d_in -> batch sequence d_out" )
-        Y=einsum(x, self.weights_t, "... d_in, d_in d_out -> ... d_out" )
+        Y=einsum(x, self.weights_t, "... d_in,  ... d_in d_out -> ... d_out" )
         # breakpoint()
         return Y
     

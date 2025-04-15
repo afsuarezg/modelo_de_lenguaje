@@ -13,7 +13,7 @@ from torch import Tensor
 from cs336_basics.transformer_lm.my_generating_text import decoding
 from cs336_basics.transformer_lm.my_loss_optimizer import cross_entropy, AdamW, gradient_clipping
 from cs336_basics.transformer_lm.my_training_utils import data_loading, save_checkpoint, load_checkpoint, get_device, learning_rate_schedule
-from cs336_basics.transformer_lm.my_transformer_attention import causalMultiHeadSelfAttention, scaled_dot_product_attention
+from cs336_basics.transformer_lm.my_transformer_attention import causalMultiHeadSelfAttention, scaled_dot_product_attention, CausalMultiHeadSelfAttention_noneinops
 from cs336_basics.transformer_lm.my_transformer_block_elements import softmax, gelu, positionwise_feedforward, RMSLayerNorm
 from cs336_basics.transformer_lm.my_transformer_block import transformer_block
 from cs336_basics.transformer_lm.my_transformer_language_model import TransformerLM
@@ -168,14 +168,22 @@ def run_multihead_self_attention(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    return causalMultiHeadSelfAttention(d_model=d_model,
+    # return CausalMultiHeadSelfAttention(d_model=d_model,
+    #                                     num_heads=num_heads,
+    #                                     q_proj_weight=q_proj_weight,
+    #                                     k_proj_weight=k_proj_weight,
+    #                                     v_proj_weight=v_proj_weight,
+    #                                     o_proj_weight=o_proj_weight,
+    #                                     in_features=in_features).forward(x=in_features)
+
+    return CausalMultiHeadSelfAttention_noneinops(d_model=d_model,
                                         num_heads=num_heads,
                                         q_proj_weight=q_proj_weight,
                                         k_proj_weight=k_proj_weight,
                                         v_proj_weight=v_proj_weight,
                                         o_proj_weight=o_proj_weight,
                                         in_features=in_features, 
-                                        rope=False).multi_head_self_attention()
+                                        rope=False).forward(x=in_features)
 
 
 def run_multihead_self_attention_with_rope(
