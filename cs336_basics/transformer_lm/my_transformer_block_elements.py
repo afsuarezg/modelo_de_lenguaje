@@ -12,8 +12,9 @@ from typing import Optional, List
 
 
 def softmax(in_features: torch.FloatTensor,
-             dim: int) -> torch.FloatTensor:
-    max_values , _= torch.max(in_features,dim=dim, keepdim=True)
+             dim: int=-1) -> torch.FloatTensor:
+    
+    max_values , _= in_features.max(dim=dim, keepdim=True)
     in_features = in_features.sub(max_values)
     in_features = in_features.exp()
     denominator = in_features.sum(dim=-1, keepdim=True)

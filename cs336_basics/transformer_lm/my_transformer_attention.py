@@ -136,18 +136,27 @@ def scaled_dot_product_attention(
     """
     # breakpoint()
     # queries, keys and values should be all equal to seq_len.
+    # assert Q.shape[-2] == K.shape[-2], "La última dimensión de Q y K no es igual." 
+    assert K.shape[-2] == V.shape[-2], "La última dimensión de K y V no son iguales." 
     d_k=Q.shape[-1]
-    scores = einsum(Q, K, "... queries d_k, ... keys d_k -> ... queries keys")/np.sqrt(d_k)
-    # breakpoint()
+    queries_size=Q.shape[-2]
 
+    scores = einsum(Q, K, "... queries d_k, ... keys d_k -> ... queries keys")
+    #scaled scores
+    scores=scores/np.sqrt(d_k)
+    # breakpoint()
     if mask == None:
         mask = 1 - torch.ones_like(input=scores, dtype=torch.int).triu(diagonal=1)
     # breakpoint()
     scores_masked = scores.masked_fill(mask==0, float('-inf'))
 
-    scores_softmaxed = softmax(in_features=scores_masked, dim=-1)
+    scores_softmaxed = softmax(in_features=scores_masked)
     # breakpoint()
-    result = einsum(scores_softmaxed, V, "... queries keys, ... keys d_v -> ... queries d_v")
+
+    assert K.shape[-2] == V.shape[-2], "Seq_len de K no es igual a seq_len de V"
+    result = einsum(scores_softmaxed, V, "... queries seq_len, ... seq_len d_v -> ... queries d_v")
+
+    assert result.shape[-2]==queries_size, "La penúltima dimensión del resultado de attention no es igual a la penúltima dimensión de Q."
 
     return result 
 
@@ -235,9 +244,11 @@ class causalMultiHeadSelfAttention(nn.Module):
         super().__init__()
         # breakpoint()
         #d_model=d_in=lenght of each word embedding
-        assert q_proj_weight.shape[-1] == d_model
+        assert q_proj_weight.shape==k_proj_weight.shape==v_proj_weight.shape
+        assert q_proj_weight.shape[-1] == d_model, "La última dimensión de wq, wk, y wv no es igual a d_model ( donde d_model es el tamano del vector de embeddings para cada token)."
         assert q_proj_weight.shape[-2]%num_heads == 0
-
+        assert q_proj_weight.shape[-1]==v_proj_weight.shape[-1]==k_proj_weight.shape[-1]==in_features.shape[-1] 
+ 
         self.batch_size=in_features.shape[0]
         self.in_features=in_features
         self.q_proj_weight=q_proj_weight
@@ -263,7 +274,7 @@ class causalMultiHeadSelfAttention(nn.Module):
         breakpoint()
         xq=rearrange(xq, "batch sequence_length (heads d_k_h) -> batch heads sequence_length d_k_h", heads=self.num_heads)
         xk=rearrange(xk, "batch sequence_length (heads d_k_h) -> batch heads sequence_length d_k_h", heads=self.num_heads)
-        xv=rearrange(xv, "batch sequence_length (heads d_k_v) -> batch heads sequence_length d_k_v", heads=self.num_heads)
+        xv=rearrange(xv, "batch sequence_length (heads d_v_h) -> batch heads sequence_length d_v_h", heads=self.num_heads)
         # xq=einsum(self.in_features, self.q_proj_weight, "batch sequence_length d_in, d_k d_in -> batch heads sequence_length d_k_h" )
         # xk=einsum(self.in_features, self.k_proj_weight, "batch sequence_length d_in, d_k d_in -> batch heads sequence_length d_k_h" )
         # xv=einsum(self.in_features, self.v_proj_weight, "batch sequence_length d_in, d_k d_in -> batch heads sequence_length d_v_h" )
