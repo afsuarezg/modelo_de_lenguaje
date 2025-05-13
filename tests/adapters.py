@@ -21,7 +21,8 @@ from cs336_basics.tokenizer.my_tokenizer import Tokenizer
 from cs336_basics.transformer_lm.my_linear import Linear
 from cs336_basics.transformer_lm.my_embedding import Embedding
 from cs336_basics.transformer_lm.my_feedforward_swiglu import silu, swiglu
-from cs336_basics.transformer_lm.my_rope import RotaryPositionalEmbedding
+from cs336_basics.transformer_lm.my_rope import myRotaryPositionalEmbedding
+# from cs336_basics.transformer_lm.rope_previous import RotaryPositionalEmbedding
 
 from cs336_basics.tokenizer.my_tokenizer import Tokenizer
 from cs336_basics.tokenizer.tas_train_bpe import train_bpe
@@ -174,8 +175,7 @@ def run_multihead_self_attention(
                                         k_proj_weight=k_proj_weight,
                                         v_proj_weight=v_proj_weight,
                                         o_proj_weight=o_proj_weight,
-                                        in_features=in_features, 
-                                        rope=False).multi_head_self_attention()
+                                        rope=False).forward(x=in_features)
 
 
 def run_multihead_self_attention_with_rope(
@@ -223,9 +223,8 @@ def run_multihead_self_attention_with_rope(
                                         k_proj_weight=k_proj_weight,
                                         v_proj_weight=v_proj_weight,
                                         o_proj_weight=o_proj_weight,
-                                        in_features=in_features,
                                         token_positions=token_positions, 
-                                        rope=True).multi_head_self_attention()
+                                        rope=True).forward(x=in_features)
 
 
 def run_rope(
@@ -247,7 +246,7 @@ def run_rope(
     Returns:
         Float[Tensor, " ... sequence_length d_k"]: Tensor with RoPEd input.
     """
-    return RotaryPositionalEmbedding(theta=theta,
+    return myRotaryPositionalEmbedding(theta=theta,
                                      d_k=d_k,
                                      max_seq_len=max_seq_len).forward(x=in_query_or_key,
                                                                       token_positions=token_positions)
@@ -350,7 +349,7 @@ def run_transformer_lm(
         num_heads (int): Number of heads to use in multi-headed attention. `d_model` must be
             evenly divisible by `num_heads`.
         d_ff (int): Dimensionality of the feed-forward inner layer (section 3.3).
-        rope_theta (float): The RoPE $\Theta$ parameter.
+        rope_theta (float): The RoPE Theta parameter.
         weights (dict[str, Tensor]): 
             State dict of our reference implementation. {num_layers} refers to an
             integer between `0` and `num_layers - 1` (the layer index).

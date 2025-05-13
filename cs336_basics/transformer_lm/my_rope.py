@@ -1,53 +1,81 @@
+from einops import einsum
+import math
+import numpy as np
 import torch
 import torch.nn as nn
-import math
+from typing import List
 
-
-class RotaryPositionalEmbedding(nn.Module):
-    def __init__(self, theta: float, d_k: int, max_seq_len: int, device=None):
+	
+class myRotaryPositionalEmbedding(nn.Module):
+    def __init__(self, theta:float, d_k:int, max_seq_len:int, device:str=None):
         super().__init__()
-        self.d_k = d_k
-        self.max_seq_len = max_seq_len
-        self.theta = theta
 
-        # Compute inverse frequencies
-        # freq: [d_k//2]
-        inv_freq = 1.0 / (theta ** (torch.arange(0, d_k, 2).float() / d_k))
+        self.theta=theta
+        self.d_k=d_k
+        self.max_seq_len=max_seq_len
+        self.device=device
+        self.ks=2*torch.arange(0, d_k/2).float()
+        self.one_over_theta=1.0/(theta**(self.ks/d_k)).to(device)
+        self.num_positions=torch.arange(max_seq_len)
+        self.angles=torch.outer(self.num_positions, self.one_over_theta).float()
+        self.blocks=[torch.tensor(self.make_block_diag(n=d_k, values=self.angles[i])) for i in range(len(self.angles))]
+        
+        self.block_diagonal_matrix=torch.stack(self.blocks, dim=0)
+        range_d_k=range(d_k)
+        for matrix in self.block_diagonal_matrix:  
+            matrix[range_d_k, range_d_k] = torch.cos(matrix[range_d_k, range_d_k])
 
-        # positions: [max_seq_len]
-        positions = torch.arange(max_seq_len).float().unsqueeze(1)  # [seq_len, 1]
+        a=[e for e in range(0,d_k,2)]
+        b=[e for e in range(1,d_k,2)]
+        for matrix in self.block_diagonal_matrix: 
+            matrix[a,b] = -torch.sin(matrix[a,b])
 
-        # angles: [seq_len, d_k//2]
-        angles = positions * inv_freq.unsqueeze(0)
-
-        # Store cos and sin buffers of shape [seq_len, d_k]
-        cos = torch.cos(angles)
-        sin = torch.sin(angles)
-
-        cos = torch.stack([cos, cos], dim=-1).reshape(max_seq_len, d_k)
-        sin = torch.stack([sin, sin], dim=-1).reshape(max_seq_len, d_k)
-
-        self.register_buffer("cos_cached", cos.to(device), persistent=False)
-        self.register_buffer("sin_cached", sin.to(device), persistent=False)
+        e=[e for e in range(1,d_k,2)]
+        f=[e for e in range(0,d_k,2)]
+        for matrix in self.block_diagonal_matrix: 
+            matrix[e,f] = torch.sin(matrix[e,f])
+        self.block_diagonal_matrix=self.block_diagonal_matrix.to(torch.float32)
+        
 
 
-    def forward(self, x: torch.Tensor, token_positions: torch.Tensor) -> torch.Tensor:
+    def make_block_diag(self, n:int, values:List):
+        assert n % 2 == 0, "n must be even"
+        assert len(values) == n // 2, "values must be of length n/2"
+
+        blocks = [np.full((2, 2), val) for val in values]
+        return np.block([[blocks[i] if i == j else np.zeros((2, 2)) for j in range(n // 2)] for i in range(n // 2)])
+    
+
+    def forward(self, x:torch.Tensor, token_positions:torch.Tensor):
         """
+        x: shape (batch_size, seq_len, d_k)
+        token_positions: shape (batch_size, seq_len)
+        """
+        # breakpoint()
+        assert x.shape[-2]==token_positions.shape[-1], "x and token_positions must have the same sequence length"
+        assert x.shape[-1]==self.d_k, "x must have the same number of columns as d_k"
+        assert token_positions.max()<self.max_seq_len, "token_positions must be less than max_seq_len"
+        breakpoint()
+        rotated_vectors=einsum(self.block_diagonal_matrix, x, " seq_len d_k d_a, batch seq_len d_a-> batch seq_len d_k")
+
+        # Save rotated vectors tensor to file
+        # Get the root directory of the repo
+        torch.save(rotated_vectors, r"c:\Users\Andres.DESKTOP-D77KM25\Documents\assignment1-basics\printsdebug\rotated_vectors.pt")
+
+
+        return rotated_vectors
+
+    def save_block_diagonal_matrix(self, filepath: str):
+        """
+        Save the block diagonal matrix to a file using torch.save
+        
         Args:
-            x: [..., seq_len, d_k] input tensor
-            token_positions: [..., seq_len] indices of positions in sequence
-        Returns:
-            Rotated x using RoPE
+            filepath: Path where to save the matrix
         """
-        cos = self.cos_cached[token_positions]  # [..., seq_len, d_k]
-        sin = self.sin_cached[token_positions]  # [..., seq_len, d_k]
+        torch.save(self.block_diagonal_matrix, filepath)
 
-        # Split into pairs: (x_even, x_odd)
-        x1, x2 = x[..., ::2], x[..., 1::2]  # both shape [..., seq_len, d_k//2]
 
-        # Apply 2D rotation: (x1 * cos - x2 * sin, x1 * sin + x2 * cos)
-        x_rotated = torch.stack([x1 * cos[..., ::2] - x2 * sin[..., ::2],
-                                 x1 * sin[..., ::2] + x2 * cos[..., ::2]],
-                                dim=-1)
-
-        return x_rotated.flatten(-2)  # merge last dim back to d_k
+if __name__ == "__main__":
+    torch.set_printoptions(linewidth=5000)
+    rope = myRotaryPositionalEmbedding(theta=10000, d_k=10, max_seq_len=12)
+    print(rope.block_diagonal_matrix)
