@@ -6,8 +6,9 @@ import numpy as np
 from typing import Optional, List
 import torch.nn.functional as F
 
-from cs336_basics.transformer_lm.my_transformer_block_elements import positionwise_feedforward, RMSLayerNorm
 from cs336_basics.transformer_lm.my_transformer_attention import causalMultiHeadSelfAttention
+from cs336_basics.transformer_lm.my_transformer_block_elements import positionwise_feedforward, RMSLayerNorm
+from cs336_basics.transformer_lm.my_feedforward_swiglu import swiglu
 
 
 def transformer_block( d_model: int,
@@ -67,6 +68,7 @@ class my_transformer_block(nn.Module):
                 theta: float,
                 weights: dict[str, torch.FloatTensor],
                 in_features: torch.FloatTensor): 
+        
         super().__init__()
         self.d_model = d_model
         self.num_heads = num_heads
@@ -75,21 +77,61 @@ class my_transformer_block(nn.Module):
         self.theta = theta
         self.weights = weights
         self.in_features = in_features
+        self.token_positions = torch.arange(0, max_seq_len, dtype=torch.int32)
 
-    def multihead_self_attention_sublayer(self, in_features: torch.FloatTensor, current_layer: int) -> torch.FloatTensor:
+    def multihead_self_attention_sublayer(self, 
+                                          in_features: torch.FloatTensor) -> torch.FloatTensor:
+        
         x = RMSLayerNorm(d_model=self.d_model,
                          eps=1e-5,
-                         weights=self.weights,
-                         in_features=in_features,
-                         weight_name='ln1.weight').forward()
+                         weights=self.weights['ln1.weight'],
+                         device=torch.device('cpu'),
+                         dtype=torch.float32).forward(x=in_features)
 
-        x= causalMultiHeadSelfAttention(d_model=self.d_model, 
-                                    num_heads=self.num_heads,
-                                    attn_pdrop=self.attn_pdrop, 
-                                    weights=self.weights,
-                                    in_features=x,  
-                                    current_layer=current_layer).multi_head_self_attention()
+        x= causalMultiHeadSelfAttention(d_model=self.d_model,
+                                        num_heads=self.num_heads,
+                                        q_proj_weight=self.weights['attn.q_proj.weight'],
+                                        k_proj_weight=self.weights['attn.k_proj.weight'],
+                                        v_proj_weight=self.weights['attn.v_proj.weight'],
+                                        o_proj_weight=self.weights['attn.output_proj.weight'], 
+                                        rope=True, 
+                                        max_seq_len=self.max_seq_len,
+                                        token_positions=self.token_positions,
+                                        theta=self.theta).forward(x=x)
         
 
-    def forward(self, in_features: torch.FloatTensor, current_layer: int) -> torch.FloatTensor:
+        x=x+in_features
+
+        return x
+
+
+    def positionwise_feedforward_sublayer(self, 
+                                          in_features: torch.FloatTensor) -> torch.FloatTensor:
+        x = RMSLayerNorm(d_model=self.d_model,
+                         eps=1e-5,
+                         weights=self.weights['ln2.weight'],
+                         device=torch.device('cpu'),
+                         dtype=torch.float32).forward(x=in_features)
+                         
+        
+        x= swiglu(d_model=self.d_model,
+                  d_ff=self.d_ff,
+                  w1_weight=self.weights['ffn.w1.weight'],
+                  w2_weight=self.weights['ffn.w2.weight'],
+                  w3_weight=self.weights['ffn.w3.weight'],
+                  in_features=x)
+        
+        x= x+in_features
+
+        return x
+
+     
+    def forward(self, 
+                in_features: torch.FloatTensor) -> torch.FloatTensor:
+        
+        x= self.multihead_self_attention_sublayer(in_features=in_features)
+
+        x= self.positionwise_feedforward_sublayer(in_features=x)
+
+        return x
 

@@ -125,7 +125,6 @@ class causalMultiHeadSelfAttention(nn.Module):
         multihead=rearrange(multihead, "... heads seq_len d_v_h -> ... seq_len (heads d_v_h)") 
         multiheadW0=einsum(self.o_proj_weight, multihead,  "d_model d_v,... seq_len d_v -> ... seq_len d_model ")
 
-
         return multiheadW0
 
 
