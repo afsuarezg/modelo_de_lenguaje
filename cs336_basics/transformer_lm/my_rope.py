@@ -50,10 +50,10 @@ class myRotaryPositionalEmbedding(nn.Module):
         x: shape (batch_size, seq_len, d_k)
         token_positions: shape (batch_size, seq_len)
         """
-
-        min_seq_len = min(x.shape[-2], len(token_positions))
+    
+        min_seq_len = min(x.shape[-2], token_positions.shape[-1])
         token_positions = list(range(min_seq_len))
-        
+        # breakpoint()
         assert x.shape[-2]==len(token_positions), "x and token_positions must have the same sequence length"
         assert x.shape[-1]==self.d_k, "x must have the same number of columns as d_k"
         # breakpoint()

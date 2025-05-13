@@ -228,12 +228,12 @@ def run_multihead_self_attention_with_rope(
 
 
 def run_rope(
-    d_k: int,
-    theta: float,
-    max_seq_len: int,
-    in_query_or_key: Float[Tensor, " ... sequence_length d_k"],
-    token_positions: Int[Tensor, " ... sequence_length"],
-) -> Float[Tensor, " ... sequence_length d_k"]:
+        d_k: int,
+        theta: float,
+        max_seq_len: int,
+        in_query_or_key: Float[Tensor, " ... sequence_length d_k"],
+        token_positions: Int[Tensor, " ... sequence_length"],
+    ) -> Float[Tensor, " ... sequence_length d_k"]:
     """
     Run RoPE for a given input tensor.
 
@@ -246,10 +246,11 @@ def run_rope(
     Returns:
         Float[Tensor, " ... sequence_length d_k"]: Tensor with RoPEd input.
     """
+
     return myRotaryPositionalEmbedding(theta=theta,
-                                     d_k=d_k,
-                                     max_seq_len=max_seq_len).forward(x=in_query_or_key,
-                                                                      token_positions=token_positions)
+                                    d_k=d_k,
+                                    max_seq_len=max_seq_len).forward(x=in_query_or_key,
+                                                                    token_positions=token_positions)
 
 
 def run_transformer_block(
