@@ -50,11 +50,15 @@ class myRotaryPositionalEmbedding(nn.Module):
         x: shape (batch_size, seq_len, d_k)
         token_positions: shape (batch_size, seq_len)
         """
-        # breakpoint()
-        assert x.shape[-2]==token_positions.shape[-1], "x and token_positions must have the same sequence length"
+
+        min_seq_len = min(x.shape[-2], len(token_positions))
+        token_positions = list(range(min_seq_len))
+        
+        assert x.shape[-2]==len(token_positions), "x and token_positions must have the same sequence length"
         assert x.shape[-1]==self.d_k, "x must have the same number of columns as d_k"
-        assert token_positions.max()<self.max_seq_len, "token_positions must be less than max_seq_len"
         # breakpoint()
+
+        # Get the block diagonal matrix for the current token positions
         rotated_vectors=einsum(self.block_diagonal_matrix[token_positions], x, " ... seq_len d_k d_a, ... seq_len d_a-> ... seq_len d_k")
 
         # Save rotated vectors tensor to file

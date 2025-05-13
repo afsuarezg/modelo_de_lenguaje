@@ -81,7 +81,7 @@ class my_transformer_block(nn.Module):
 
     def multihead_self_attention_sublayer(self, 
                                           in_features: torch.FloatTensor) -> torch.FloatTensor:
-        
+
         x = RMSLayerNorm(d_model=self.d_model,
                          eps=1e-5,
                          weights=self.weights['ln1.weight'],
@@ -98,10 +98,8 @@ class my_transformer_block(nn.Module):
                                         max_seq_len=self.max_seq_len,
                                         token_positions=self.token_positions,
                                         theta=self.theta).forward(x=x)
-        
 
         x=x+in_features
-
         return x
 
 
@@ -113,7 +111,6 @@ class my_transformer_block(nn.Module):
                          device=torch.device('cpu'),
                          dtype=torch.float32).forward(x=in_features)
                          
-        
         x= swiglu(d_model=self.d_model,
                   d_ff=self.d_ff,
                   w1_weight=self.weights['ffn.w1.weight'],
@@ -122,16 +119,13 @@ class my_transformer_block(nn.Module):
                   in_features=x)
         
         x= x+in_features
-
         return x
 
      
     def forward(self, 
                 in_features: torch.FloatTensor) -> torch.FloatTensor:
-        
         x= self.multihead_self_attention_sublayer(in_features=in_features)
 
         x= self.positionwise_feedforward_sublayer(in_features=x)
-
         return x
 
