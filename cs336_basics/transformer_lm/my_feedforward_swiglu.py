@@ -38,8 +38,7 @@ def swiglu(d_model:int,
         w1_weight = rearrange(w1_weight, "d_ff d_model -> d_ff d_model", d_model=d_model_)
         w2_weight = rearrange(w2_weight, "d_model d_ff -> d_model d_ff", d_model=d_model_)
         w3_weight = rearrange(w3_weight, "d_ff d_model -> d_ff d_model", d_model=d_model_)
-    
-        breakpoint()
+
         # Project input using W1 and W3: shape (..., d_model) -> (..., d_ff)
         x1 = torch.matmul(in_features, w1_weight.T)  # (..., d_ff)
         x2 = torch.matmul(in_features, w3_weight.T)  # (..., d_ff)

@@ -37,7 +37,6 @@ class myRotaryPositionalEmbedding(nn.Module):
         self.block_diagonal_matrix=self.block_diagonal_matrix.to(torch.float32)
         
 
-
     def make_block_diag(self, n:int, values:List):
         assert n % 2 == 0, "n must be even"
         assert len(values) == n // 2, "values must be of length n/2"
@@ -55,8 +54,8 @@ class myRotaryPositionalEmbedding(nn.Module):
         assert x.shape[-2]==token_positions.shape[-1], "x and token_positions must have the same sequence length"
         assert x.shape[-1]==self.d_k, "x must have the same number of columns as d_k"
         assert token_positions.max()<self.max_seq_len, "token_positions must be less than max_seq_len"
-        breakpoint()
-        rotated_vectors=einsum(self.block_diagonal_matrix, x, " seq_len d_k d_a, batch seq_len d_a-> batch seq_len d_k")
+        # breakpoint()
+        rotated_vectors=einsum(self.block_diagonal_matrix[token_positions], x, " ... seq_len d_k d_a, ... seq_len d_a-> ... seq_len d_k")
 
         # Save rotated vectors tensor to file
         # Get the root directory of the repo

@@ -118,7 +118,7 @@ class causalMultiHeadSelfAttention(nn.Module):
         xv=rearrange(xv, "... sequence_length (heads d_v_h) -> ... heads sequence_length d_v_h", heads=self.num_heads)
 
         if self.rope: 
-            xq=self.rope_class.forward(x=xq, token_positions=self.token_positions)
+            xq=self.rope_class.forward(x=xq, token_positions=self.token_positions)#
             xk=self.rope_class.forward(x=xk, token_positions=self.token_positions)
 
         multihead=scaled_dot_product_attention(Q=xq, K=xk, V=xv)

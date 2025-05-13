@@ -49,7 +49,7 @@ def positionwise_feedforward(
     return output
 
 
-class RMSLayerNorm(nn.Module):
+class RMSLayerNorm_deprecated(nn.Module):
     """Given the weights of a RMSNorm affine transform,
     return the output of running RMSNorm on the input features.
 
