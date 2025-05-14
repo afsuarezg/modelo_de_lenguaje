@@ -19,7 +19,7 @@ from cs336_basics.transformer_lm.my_loss_optimizer import cross_entropy, AdamW, 
 from cs336_basics.transformer_lm.my_rope import myRotaryPositionalEmbedding
 from cs336_basics.transformer_lm.my_training_utils import data_loading, save_checkpoint, load_checkpoint, get_device, learning_rate_schedule
 from cs336_basics.transformer_lm.my_transformer_attention import causalMultiHeadSelfAttention, scaled_dot_product_attention, CausalMultiHeadSelfAttention_noneinops
-from cs336_basics.transformer_lm.my_transformer_block import my_transformer_block
+from cs336_basics.transformer_lm.my_transformer_block import my_transformer_block, my_transformer_lm
 from cs336_basics.transformer_lm.my_transformer_block_elements import softmax, gelu, positionwise_feedforward, RMSLayerNorm
 from cs336_basics.transformer_lm.my_transformer_language_model import TransformerLM
 from cs336_basics.tokenizer.my_tokenizer import Tokenizer
@@ -412,8 +412,15 @@ def run_transformer_lm(
         Float[Tensor, "batch_size sequence_length vocab_size"]: Tensor with the predicted unnormalized
         next-word distribution for each token.
     """
-    raise NotImplementedError
-
+    return my_transformer_lm(vocab_size=vocab_size,
+                             context_length=context_length,
+                             d_model=d_model,
+                             num_layers=num_layers,
+                             num_heads=num_heads,
+                             d_ff=d_ff,
+                             rope_theta=rope_theta,
+                             weights=weights,
+                             in_indices=in_indices).forward(in_indices=in_indices)
 
 def run_rmsnorm(
     d_model: int,

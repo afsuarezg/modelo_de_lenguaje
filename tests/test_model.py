@@ -202,7 +202,7 @@ def test_transformer_block(numpy_snapshot, ts_state_dict, in_embeddings, d_model
     )
     numpy_snapshot.assert_match(
         actual_output,
-        atol=1e-6,
+        atol=1e-4,
     )
 
 

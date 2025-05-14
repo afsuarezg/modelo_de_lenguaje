@@ -6,9 +6,13 @@ import numpy as np
 from typing import Optional, List
 import torch.nn.functional as F
 
-from cs336_basics.transformer_lm.my_transformer_attention import causalMultiHeadSelfAttention
-from cs336_basics.transformer_lm.my_transformer_block_elements import positionwise_feedforward, RMSLayerNorm
+from cs336_basics.transformer_lm.my_embedding import Embedding
 from cs336_basics.transformer_lm.my_feedforward_swiglu import swiglu
+from cs336_basics.transformer_lm.my_linear import Linear
+from cs336_basics.transformer_lm.my_transformer_attention import causalMultiHeadSelfAttention
+from cs336_basics.transformer_lm.my_transformer_block_elements import positionwise_feedforward, RMSLayerNorm, softmax
+
+
 
 
 def transformer_block( d_model: int,
@@ -67,7 +71,8 @@ class my_transformer_block(nn.Module):
                 max_seq_len: int,
                 theta: float,
                 weights: dict[str, torch.FloatTensor],
-                in_features: torch.FloatTensor): 
+                in_features: torch.FloatTensor, 
+                iteration: int=0): 
         
         super().__init__()
         self.d_model = d_model
@@ -79,25 +84,30 @@ class my_transformer_block(nn.Module):
         self.in_features = in_features
         self.token_positions = torch.arange(0, max_seq_len, dtype=torch.int32)
 
+
     def multihead_self_attention_sublayer(self, 
                                           in_features: torch.FloatTensor) -> torch.FloatTensor:
+
+
+
+
 
         x = RMSLayerNorm(d_model=self.d_model,
                          eps=1e-5,
                          weights=self.weights['ln1.weight'],
                          device=torch.device('cpu'),
-                         dtype=torch.float32).forward(x=in_features)
+                         dtype=torch.float64).forward(x=in_features)
 
         x= causalMultiHeadSelfAttention(d_model=self.d_model,
-                                        num_heads=self.num_heads,
-                                        q_proj_weight=self.weights['attn.q_proj.weight'],
-                                        k_proj_weight=self.weights['attn.k_proj.weight'],
-                                        v_proj_weight=self.weights['attn.v_proj.weight'],
-                                        o_proj_weight=self.weights['attn.output_proj.weight'], 
-                                        rope=True, 
-                                        max_seq_len=self.max_seq_len,
-                                        token_positions=self.token_positions,
-                                        theta=self.theta).forward(x=x)
+                                    num_heads=self.num_heads,
+                                    q_proj_weight=self.weights['attn.q_proj.weight'],
+                                    k_proj_weight=self.weights['attn.k_proj.weight'],
+                                    v_proj_weight=self.weights['attn.v_proj.weight'],
+                                    o_proj_weight=self.weights['attn.output_proj.weight'], 
+                                    rope=True, 
+                                    max_seq_len=self.max_seq_len,
+                                    token_positions=self.token_positions,
+                                    theta=self.theta).forward(x=x)
 
         x=x+in_features
         return x
@@ -109,7 +119,7 @@ class my_transformer_block(nn.Module):
                          eps=1e-5,
                          weights=self.weights['ln2.weight'],
                          device=torch.device('cpu'),
-                         dtype=torch.float32).forward(x=in_features)
+                         dtype=torch.float64).forward(x=in_features)
                          
         x= swiglu(d_model=self.d_model,
                   d_ff=self.d_ff,
@@ -128,4 +138,124 @@ class my_transformer_block(nn.Module):
 
         x= self.positionwise_feedforward_sublayer(in_features=x)
         return x
+
+
+class my_transformer_lm(nn.Module):
+    """Given the weights of a Transformer language model and input indices,
+    return the output of running a forward pass on the input indices.
+
+    This function should use RoPE.
+
+    Args:
+        vocab_size (int): The number of unique items in the output vocabulary to be predicted.
+        context_length (int): The maximum number of tokens to process at once.
+        d_model (int): The dimensionality of the model embeddings and sublayer outputs.
+        num_layers (int): The number of Transformer layers to use.
+        num_heads (int): Number of heads to use in multi-headed attention. `d_model` must be
+            evenly divisible by `num_heads`.
+        d_ff (int): Dimensionality of the feed-forward inner layer (section 3.3).
+        rope_theta (float): The RoPE Theta parameter.
+        weights (dict[str, Tensor]): 
+            State dict of our reference implementation. {num_layers} refers to an
+            integer between `0` and `num_layers - 1` (the layer index).
+            The keys of this dictionary are:
+            - `token_embeddings.weight`
+                Token embedding matrix. Shape is (vocab_size, d_model).
+            - `layers.{num_layers}.attn.q_proj.weight`
+                The query projections for all `num_heads` attention heads.
+                Shape is (num_heads * (d_model / num_heads), d_model).
+                The rows are ordered by matrices of shape (num_heads, d_k),
+                so `attn.q_proj.weight == torch.cat([q_heads.0.weight, ..., q_heads.N.weight], dim=0)`.
+            - `layers.{num_layers}.attn.k_proj.weight`
+                The key projections for all `num_heads` attention heads.
+                Shape is (num_heads * (d_model / num_heads), d_model).
+                The rows are ordered by matrices of shape (num_heads, d_k),
+                so `attn.k_proj.weight == torch.cat([k_heads.0.weight, ..., k_heads.N.weight], dim=0)`.
+            - `layers.{num_layers}.attn.v_proj.weight`
+                The value projections for all `num_heads` attention heads.
+                Shape is (num_heads * (d_model / num_heads), d_model).
+                The rows are ordered by matrices of shape (num_heads, d_v),
+                so `attn.v_proj.weight == torch.cat([v_heads.0.weight, ..., v_heads.N.weight], dim=0)`.
+            - `layers.{num_layers}.attn.output_proj.weight`
+                Weight of the multi-head self-attention output projection
+                Shape is ((d_model / num_heads) * num_heads, d_model).
+            - `layers.{num_layers}.ln1.weight`
+                Weights of affine transform for the first RMSNorm
+                applied in the transformer block.
+                Shape is (d_model,).
+            - `layers.{num_layers}.ffn.w1.weight`
+                Weight of the first linear transformation in the FFN.
+                Shape is (d_model, d_ff).
+            - `layers.{num_layers}.ffn.w2.weight`
+                Weight of the second linear transformation in the FFN.
+                Shape is (d_ff, d_model).
+            - `layers.{num_layers}.ffn.w3.weight`
+                Weight of the third linear transformation in the FFN.
+                Shape is (d_model, d_ff).
+            - `layers.{num_layers}.ln2.weight`
+                Weights of affine transform for the second RMSNorm
+                applied in the transformer block.
+                Shape is (d_model,).
+            - `ln_final.weight`
+                Weights of affine transform for RMSNorm applied to the output of the final transformer block.
+                Shape is (d_model, ).
+            - `lm_head.weight`
+                Weights of the language model output embedding.
+                Shape is (vocab_size, d_model).
+        in_indices (Int[Tensor, "batch_size sequence_length"]) Tensor with input indices to run the language model on. Shape is (batch_size, sequence_length), where
+            `sequence_length` is at most `context_length`.
+
+    Returns:
+        Float[Tensor, "batch_size sequence_length vocab_size"]: Tensor with the predicted unnormalized
+        next-word distribution for each token.
+    """
+
+    def __init__(self, 
+                 d_model: int,
+                 num_heads: int,
+                 d_ff: int,
+                 rope_theta: float,
+                 weights: dict[str, torch.FloatTensor],
+                 in_indices: torch.IntTensor, 
+                 vocab_size: int,
+                 context_length: int,
+                 num_layers: int):
+                         
+        assert d_model % num_heads == 0, "d_model must be divisible by num_heads"
+
+        super().__init__()
+        self.d_model = d_model
+        self.num_heads = num_heads
+        self.d_ff = d_ff
+        self.rope_theta = rope_theta    
+        self.weights = weights
+        self.vocab_size = vocab_size
+        self.context_length = context_length
+        self.num_layers = num_layers
+
+        self.embedding_layer=Embedding(vocab_size=vocab_size,
+                                       d_model=d_model,
+                                       weights=self.weights['token_embeddings.weight'],
+                                       device=torch.device('cpu'),
+                                       dtype=torch.float64)
+        
+
+
+    def forward(self, 
+                in_indices: torch.IntTensor) -> torch.FloatTensor:
+        
+        x=self.embedding_layer(in_features=in_indices)
+
+        for i in range(self.num_layers):
+            x=my_transformer_block(d_model=self.d_model,
+                                   num_heads=self.num_heads,
+                                   d_ff=self.d_ff,
+                                   max_seq_len=self.max_seq_len,
+                                   theta=self.rope_theta,
+                                   weights=self.weights,
+                                   in_features=x, 
+                                   iteration=i).forward(in_features=x)
+
+
+        
 
