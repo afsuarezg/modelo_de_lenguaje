@@ -83,14 +83,23 @@ class my_transformer_block(nn.Module):
         self.weights = weights
         self.in_features = in_features
         self.token_positions = torch.arange(0, max_seq_len, dtype=torch.int32)
+        if iteration:
+            updated_weights={}
+            updated_weights['ln1.weight']=weights[f'layers.{iteration}.ln1.weight']
+            updated_weights['ln2.weight']=weights[f'layers.{iteration}.ln2.weight']
+            updated_weights['attn.q_proj.weight']=weights[f'layers.{iteration}.attn.q_proj.weight']
+            updated_weights['attn.k_proj.weight']=weights[f'layers.{iteration}.attn.k_proj.weight']
+            updated_weights['attn.v_proj.weight']=weights[f'layers.{iteration}.attn.v_proj.weight']
+            updated_weights['attn.output_proj.weight']=weights[f'layers.{iteration}.attn.output_proj.weight']
+            updated_weights['ln2.weight']=weights[f'layers.{iteration}.ln2.weight']
+            updated_weights['ffn.w1.weight']=weights[f'layers.{iteration}.ffn.w1.weight']
+            updated_weights['ffn.w2.weight']=weights[f'layers.{iteration}.ffn.w2.weight']
+            updated_weights['ffn.w3.weight']=weights[f'layers.{iteration}.ffn.w3.weight']
+            self.weights=updated_weights
 
 
     def multihead_self_attention_sublayer(self, 
                                           in_features: torch.FloatTensor) -> torch.FloatTensor:
-
-
-
-
 
         x = RMSLayerNorm(d_model=self.d_model,
                          eps=1e-5,
@@ -216,7 +225,6 @@ class my_transformer_lm(nn.Module):
                  d_ff: int,
                  rope_theta: float,
                  weights: dict[str, torch.FloatTensor],
-                 in_indices: torch.IntTensor, 
                  vocab_size: int,
                  context_length: int,
                  num_layers: int):
@@ -240,7 +248,6 @@ class my_transformer_lm(nn.Module):
                                        dtype=torch.float64)
         
 
-
     def forward(self, 
                 in_indices: torch.IntTensor) -> torch.FloatTensor:
         
@@ -255,6 +262,15 @@ class my_transformer_lm(nn.Module):
                                    weights=self.weights,
                                    in_features=x, 
                                    iteration=i).forward(in_features=x)
+            
+        x=RMSLayerNorm(d_model=self.d_model,
+                       eps=1e-5,
+                       weights=self.weights['ln_final.weight'],
+                       device=torch.device('cpu'),
+                       dtype=torch.float64).forward(x=x)
+                       
+        
+        
 
 
         
