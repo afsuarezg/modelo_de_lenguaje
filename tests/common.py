@@ -52,3 +52,6 @@ def gpt2_bytes_to_unicode() -> dict[int, str]:
     characters = [chr(n) for n in cs]
     d = dict(zip(bs, characters))
     return d
+
+if __name__ == "__main__":
+    print(FIXTURES_PATH)
