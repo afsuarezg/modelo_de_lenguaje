@@ -72,30 +72,30 @@ class my_transformer_block(nn.Module):
                 theta: float,
                 weights: dict[str, torch.FloatTensor],
                 in_features: torch.FloatTensor, 
-                iteration: int=0): 
-        
+                iteration: int|None=None): 
+   
         super().__init__()
         self.d_model = d_model
         self.num_heads = num_heads
         self.d_ff = d_ff
         self.max_seq_len = max_seq_len
         self.theta = theta
-        self.weights = weights
         self.in_features = in_features
         self.token_positions = torch.arange(0, max_seq_len, dtype=torch.int32)
-        if iteration:
-            updated_weights={}
-            updated_weights['ln1.weight']=weights[f'layers.{iteration}.ln1.weight']
-            updated_weights['ln2.weight']=weights[f'layers.{iteration}.ln2.weight']
-            updated_weights['attn.q_proj.weight']=weights[f'layers.{iteration}.attn.q_proj.weight']
-            updated_weights['attn.k_proj.weight']=weights[f'layers.{iteration}.attn.k_proj.weight']
-            updated_weights['attn.v_proj.weight']=weights[f'layers.{iteration}.attn.v_proj.weight']
-            updated_weights['attn.output_proj.weight']=weights[f'layers.{iteration}.attn.output_proj.weight']
-            updated_weights['ln2.weight']=weights[f'layers.{iteration}.ln2.weight']
-            updated_weights['ffn.w1.weight']=weights[f'layers.{iteration}.ffn.w1.weight']
-            updated_weights['ffn.w2.weight']=weights[f'layers.{iteration}.ffn.w2.weight']
-            updated_weights['ffn.w3.weight']=weights[f'layers.{iteration}.ffn.w3.weight']
-            self.weights=updated_weights
+ 
+        if iteration is None:
+            self.weights=weights
+        else: #if type(iteration) is int:
+            self.weights={}
+            self.weights['ln1.weight']=weights[f'layers.{iteration}.ln1.weight']
+            self.weights['ln2.weight']=weights[f'layers.{iteration}.ln2.weight']
+            self.weights['attn.q_proj.weight']=weights[f'layers.{iteration}.attn.q_proj.weight']
+            self.weights['attn.k_proj.weight']=weights[f'layers.{iteration}.attn.k_proj.weight']
+            self.weights['attn.v_proj.weight']=weights[f'layers.{iteration}.attn.v_proj.weight']
+            self.weights['attn.output_proj.weight']=weights[f'layers.{iteration}.attn.output_proj.weight']
+            self.weights['ffn.w1.weight']=weights[f'layers.{iteration}.ffn.w1.weight']
+            self.weights['ffn.w2.weight']=weights[f'layers.{iteration}.ffn.w2.weight']
+            self.weights['ffn.w3.weight']=weights[f'layers.{iteration}.ffn.w3.weight']
 
 
     def multihead_self_attention_sublayer(self, 
@@ -105,7 +105,7 @@ class my_transformer_block(nn.Module):
                          eps=1e-5,
                          weights=self.weights['ln1.weight'],
                          device=torch.device('cpu'),
-                         dtype=torch.float64).forward(x=in_features)
+                         dtype=torch.float32).forward(x=in_features)
 
         x= causalMultiHeadSelfAttention(d_model=self.d_model,
                                     num_heads=self.num_heads,
@@ -128,7 +128,7 @@ class my_transformer_block(nn.Module):
                          eps=1e-5,
                          weights=self.weights['ln2.weight'],
                          device=torch.device('cpu'),
-                         dtype=torch.float64).forward(x=in_features)
+                         dtype=torch.float).forward(x=in_features)
                          
         x= swiglu(d_model=self.d_model,
                   d_ff=self.d_ff,
@@ -239,19 +239,20 @@ class my_transformer_lm(nn.Module):
         self.weights = weights
         self.vocab_size = vocab_size
         self.context_length = context_length
+        self.max_seq_len = context_length
         self.num_layers = num_layers
 
         self.embedding_layer=Embedding(vocab_size=vocab_size,
                                        d_model=d_model,
                                        weights=self.weights['token_embeddings.weight'],
                                        device=torch.device('cpu'),
-                                       dtype=torch.float64)
+                                       dtype=torch.float32)
         
 
     def forward(self, 
                 in_indices: torch.IntTensor) -> torch.FloatTensor:
         
-        x=self.embedding_layer(in_features=in_indices)
+        x=self.embedding_layer(in_indices)
 
         for i in range(self.num_layers):
             x=my_transformer_block(d_model=self.d_model,
@@ -267,7 +268,20 @@ class my_transformer_lm(nn.Module):
                        eps=1e-5,
                        weights=self.weights['ln_final.weight'],
                        device=torch.device('cpu'),
-                       dtype=torch.float64).forward(x=x)
+                       dtype=torch.float32).forward(x=x)
+        
+        x=Linear(d_in=self.d_model,
+                 d_out=self.vocab_size,
+                 weights=self.weights['lm_head.weight'],
+                 device=torch.device('cpu'),
+                 dtype=torch.float32).forward(x=x)
+        
+        return x
+        
+        
+
+
+
                        
         
         

@@ -13,6 +13,7 @@ class Linear(torch.nn.Module):
                   weights: Float[Tensor, " d_out d_in"],
                   device: torch.device|None=None,
                   dtype: torch.dtype|None=None):
+        
         super().__init__()
         assert weights.shape == (d_out, d_in)
         

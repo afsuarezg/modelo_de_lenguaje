@@ -108,7 +108,7 @@ class causalMultiHeadSelfAttention(nn.Module):
             self.token_positions=token_positions
 
     def forward(self, x:Float[Tensor, " ... sequence_length d_in"])-> Float[Tensor, " ... sequence_length d_out"]:
-
+        
         xq=einsum(x, self.q_proj_weight, "... sequence_length d_in, d_k d_in -> ... sequence_length d_k" )
         xk=einsum(x, self.k_proj_weight, "... sequence_length d_in, d_k d_in -> ... sequence_length d_k" )
         xv=einsum(x, self.v_proj_weight, "... sequence_length d_in, d_v d_in -> ... sequence_length d_v" )
