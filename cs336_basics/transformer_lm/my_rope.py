@@ -1,5 +1,4 @@
 from einops import einsum
-import math
 import numpy as np
 import torch
 import torch.nn as nn
@@ -20,21 +19,22 @@ class myRotaryPositionalEmbedding(nn.Module):
         self.angles=torch.outer(self.num_positions, self.one_over_theta).float()
         self.blocks=[torch.tensor(self.make_block_diag(n=d_k, values=self.angles[i])) for i in range(len(self.angles))]
         
-        self.block_diagonal_matrix=torch.stack(self.blocks, dim=0)
+        self.blocks_diagonal_matrix=torch.stack(self.blocks, dim=0)
+        self.blocks_diagonal_matrix=self.blocks_diagonal_matrix.numpy()
         range_d_k=range(d_k)
-        for matrix in self.block_diagonal_matrix:  
-            matrix[range_d_k, range_d_k] = torch.cos(matrix[range_d_k, range_d_k])
+        for blocks in self.blocks_diagonal_matrix:  
+            blocks[range_d_k, range_d_k] = np.cos(blocks[range_d_k, range_d_k])
 
         a=[e for e in range(0,d_k,2)]
         b=[e for e in range(1,d_k,2)]
-        for matrix in self.block_diagonal_matrix: 
-            matrix[a,b] = -torch.sin(matrix[a,b])
+        for blocks in self.blocks_diagonal_matrix: 
+            blocks[a,b] = -np.sin(blocks[a,b])
 
         e=[e for e in range(1,d_k,2)]
         f=[e for e in range(0,d_k,2)]
-        for matrix in self.block_diagonal_matrix: 
-            matrix[e,f] = torch.sin(matrix[e,f])
-        self.block_diagonal_matrix=self.block_diagonal_matrix.to(torch.float32)
+        for blocks in self.blocks_diagonal_matrix: 
+            blocks[e,f] = np.sin(blocks[e,f])
+        self.blocks_diagonal_matrix=torch.from_numpy(self.blocks_diagonal_matrix).to(torch.float32)
         
 
     def make_block_diag(self, n:int, values:List):
@@ -59,7 +59,7 @@ class myRotaryPositionalEmbedding(nn.Module):
         # breakpoint()
 
         # Get the block diagonal matrix for the current token positions
-        rotated_vectors=einsum(self.block_diagonal_matrix[token_positions], x, " ... seq_len d_k d_a, ... seq_len d_a-> ... seq_len d_k")
+        rotated_vectors=einsum(self.blocks_diagonal_matrix[token_positions], x, " ... seq_len d_k d_a, ... seq_len d_a-> ... seq_len d_k")
 
         # Save rotated vectors tensor to file
         # Get the root directory of the repo
@@ -75,7 +75,7 @@ class myRotaryPositionalEmbedding(nn.Module):
         Args:
             filepath: Path where to save the matrix
         """
-        torch.save(self.block_diagonal_matrix, filepath)
+        torch.save(self.blocks_diagonal_matrix, filepath)
 
 
 if __name__ == "__main__":

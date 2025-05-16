@@ -65,14 +65,16 @@ def transformer_block( d_model: int,
 
 class my_transformer_block(nn.Module):
     def __init__(self, 
-                 d_model: int,
+                d_model: int,
                 num_heads: int,
                 d_ff: int,
                 max_seq_len: int,
                 theta: float,
                 weights: dict[str, torch.FloatTensor],
                 in_features: torch.FloatTensor, 
-                iteration: int|None=None): 
+                iteration: int|None=None, 
+                device: torch.device=torch.device('cpu'),
+                dtype: torch.dtype=torch.float32): 
    
         super().__init__()
         self.d_model = d_model
@@ -82,6 +84,8 @@ class my_transformer_block(nn.Module):
         self.theta = theta
         self.in_features = in_features
         self.token_positions = torch.arange(0, max_seq_len, dtype=torch.int32)
+        self.device = device
+        self.dtype = dtype
  
         if iteration is None:
             self.weights=weights
@@ -104,10 +108,10 @@ class my_transformer_block(nn.Module):
         x = RMSLayerNorm(d_model=self.d_model,
                          eps=1e-5,
                          weights=self.weights['ln1.weight'],
-                         device=torch.device('cpu'),
-                         dtype=torch.float32).forward(x=in_features)
+                         device=self.device,
+                         dtype=self.dtype).forward(x=in_features)
 
-        x= causalMultiHeadSelfAttention(d_model=self.d_model,
+        x = causalMultiHeadSelfAttention(d_model=self.d_model,
                                     num_heads=self.num_heads,
                                     q_proj_weight=self.weights['attn.q_proj.weight'],
                                     k_proj_weight=self.weights['attn.k_proj.weight'],
@@ -118,7 +122,7 @@ class my_transformer_block(nn.Module):
                                     token_positions=self.token_positions,
                                     theta=self.theta).forward(x=x)
 
-        x=x+in_features
+        x+=in_features
         return x
 
 
@@ -127,17 +131,17 @@ class my_transformer_block(nn.Module):
         x = RMSLayerNorm(d_model=self.d_model,
                          eps=1e-5,
                          weights=self.weights['ln2.weight'],
-                         device=torch.device('cpu'),
-                         dtype=torch.float).forward(x=in_features)
+                         device=self.device,    
+                         dtype=self.dtype).forward(x=in_features)
                          
-        x= swiglu(d_model=self.d_model,
+        x = swiglu(d_model=self.d_model,
                   d_ff=self.d_ff,
                   w1_weight=self.weights['ffn.w1.weight'],
                   w2_weight=self.weights['ffn.w2.weight'],
                   w3_weight=self.weights['ffn.w3.weight'],
                   in_features=x)
         
-        x= x+in_features
+        x+=in_features
         return x
 
      
@@ -227,7 +231,9 @@ class my_transformer_lm(nn.Module):
                  weights: dict[str, torch.FloatTensor],
                  vocab_size: int,
                  context_length: int,
-                 num_layers: int):
+                 num_layers: int, 
+                 device: torch.device=torch.device('cpu'),
+                 dtype: torch.dtype=torch.float32):
                          
         assert d_model % num_heads == 0, "d_model must be divisible by num_heads"
 
@@ -241,12 +247,14 @@ class my_transformer_lm(nn.Module):
         self.context_length = context_length
         self.max_seq_len = context_length
         self.num_layers = num_layers
+        self.device = device
+        self.dtype = dtype
 
         self.embedding_layer=Embedding(vocab_size=vocab_size,
                                        d_model=d_model,
                                        weights=self.weights['token_embeddings.weight'],
-                                       device=torch.device('cpu'),
-                                       dtype=torch.float32)
+                                       device=device,
+                                       dtype=dtype)
         
 
     def forward(self, 
@@ -267,14 +275,14 @@ class my_transformer_lm(nn.Module):
         x=RMSLayerNorm(d_model=self.d_model,
                        eps=1e-5,
                        weights=self.weights['ln_final.weight'],
-                       device=torch.device('cpu'),
-                       dtype=torch.float32).forward(x=x)
+                       device=self.device,
+                       dtype=self.dtype).forward(x=x)
         
         x=Linear(d_in=self.d_model,
                  d_out=self.vocab_size,
                  weights=self.weights['lm_head.weight'],
-                 device=torch.device('cpu'),
-                 dtype=torch.float32).forward(x=x)
+                 device=self.device,
+                 dtype=self.dtype).forward(x=x)
         
         return x
         

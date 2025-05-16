@@ -1,12 +1,12 @@
-from einops import rearrange, einsum, reduce
-from jaxtyping import Float, Int
-import numpy as np
+from einops import rearrange, einsum
+from jaxtyping import Float
 import torch
+import torch.nn as nn
 from torch import Tensor
 
 
 
-class Linear(torch.nn.Module):
+class Linear(nn.Module):
     def __init__(self,
                   d_in: int,
                   d_out: int,
