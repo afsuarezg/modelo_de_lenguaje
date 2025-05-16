@@ -2,12 +2,6 @@
 import numpy as np
 import torch
 import torch.nn.functional as F
-import numpy.typing as npt
-import pytest
-from collections import Counter
-import math
-import os
-import typing
 import wandb
 from datetime import datetime
 
@@ -15,11 +9,10 @@ from my_transformer_language_model import TransformerLM
 from my_training_utils import data_loading, save_checkpoint, load_checkpoint, get_device
 from my_loss_optimizer import cross_entropy, AdamW, gradient_clipping 
 
-
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Process training hyperparameters for an LLM.")
     
-    parser.add_argument("--d_model", type=int, help="Dimensionatly of the feedforward input and output.")
+    parser.add_argument("--d_model", type=int, help="Dimensionality of the feedforward input and output.")
     parser.add_argument("--d_ff", type=int, help="Dimensionality of the feedforward network's inner layer.")
     parser.add_argument("--attn_pdropout", type=float, default=0.4, help="If given. drop-out  the attention probabilities with this.")
     parser.add_argument("--num_heads", type=int, help="Number of heads to use in multi-head attention.")
@@ -47,7 +40,7 @@ def parse_arguments():
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility.")
     parser.add_argument("--checkpoint_interval", type=int, default=5000, help="Save model checkpoint every N steps.")
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1, help="Number of steps before performing a gradient update.")
-    
+    breakpoint()
     args = parser.parse_args()
     return args
 
@@ -62,7 +55,7 @@ def main():
 
 def llm_train_loop(              
               name:str,
-              vocab_size=int,
+              vocab_size:int,
               context_length:int,  
               d_model:int,
               num_layers:int,

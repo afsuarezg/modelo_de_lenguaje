@@ -12,7 +12,7 @@ from torch import Tensor
 #################################################################################
 
 from cs336_basics.transformer_lm.my_embedding import Embedding
-from cs336_basics.transformer_lm.my_feedforward_swiglu import swiglu
+from cs336_basics.transformer_lm.my_feedforward_swiglu import swiglu, silu
 from cs336_basics.transformer_lm.my_generating_text import decoding
 from cs336_basics.transformer_lm.my_linear import Linear
 from cs336_basics.transformer_lm.my_loss_optimizer import cross_entropy, AdamW, gradient_clipping
@@ -457,7 +457,7 @@ def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
         Float[Tensor,"..."]: of with the same shape as `in_features` with the output of applying
         SiLU to each element.
     """
-    raise NotImplementedError
+    return silu(in_features=in_features)
 
 
 def run_get_batch(
@@ -480,7 +480,10 @@ def run_get_batch(
         is the sampled input sequences, and the second tuple item is the corresponding
         language modeling labels.
     """
-    raise NotImplementedError
+    return data_loading(dataset=dataset, 
+                        batch_size=batch_size,
+                        context_length=context_length,
+                        device=device)
 
 
 def run_softmax(in_features: Float[Tensor, " ..."], dim: int) -> Float[Tensor, " ..."]:
