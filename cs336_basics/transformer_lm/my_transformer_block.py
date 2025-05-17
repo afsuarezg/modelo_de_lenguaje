@@ -13,8 +13,6 @@ from cs336_basics.transformer_lm.my_transformer_attention import causalMultiHead
 from cs336_basics.transformer_lm.my_transformer_block_elements import positionwise_feedforward, RMSLayerNorm, softmax
 
 
-
-
 def transformer_block( d_model: int,
         num_heads: int,
         d_ff: int,
@@ -285,15 +283,3 @@ class my_transformer_lm(nn.Module):
                  dtype=self.dtype).forward(x=x)
         
         return x
-        
-        
-
-
-
-                       
-        
-        
-
-
-        
-

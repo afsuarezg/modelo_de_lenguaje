@@ -21,7 +21,6 @@ from cs336_basics.transformer_lm.my_training_utils import data_loading, save_che
 from cs336_basics.transformer_lm.my_transformer_attention import causalMultiHeadSelfAttention, scaled_dot_product_attention, CausalMultiHeadSelfAttention_noneinops
 from cs336_basics.transformer_lm.my_transformer_block import my_transformer_block, my_transformer_lm
 from cs336_basics.transformer_lm.my_transformer_block_elements import softmax, RMSLayerNorm
-from cs336_basics.transformer_lm.my_transformer_language_model import TransformerLM
 from cs336_basics.tokenizer.my_tokenizer import Tokenizer
 
 from cs336_basics.tokenizer.my_tokenizer import Tokenizer

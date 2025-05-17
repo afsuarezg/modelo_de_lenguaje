@@ -22,6 +22,7 @@ class TransformerLM(nn.Module):
                 residual_pdrop:float,
                 weights: dict[str, torch.FloatTensor], 
                 in_indices: torch.LongTensor):
+        
         super().__init__()
         self.vocab_size=vocab_size
         self.context_length=context_length
