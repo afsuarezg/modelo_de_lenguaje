@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
+from einops import rearrange, einsum, reduce
 import numpy as np
 import torch
 import torch.nn.functional as F
 import wandb
+import os
 import argparse
 from datetime import datetime
 import time
 
-from my_transformer_language_model import TransformerLM
+from cs336_basics.transformer_lm.my_transformer_language_model import TransformerLM
 from cs336_basics.transformer_lm.my_transformer_block import my_transformer_lm
-from my_training_utils import data_loading, save_checkpoint, load_checkpoint, get_device, learning_rate_schedule
-from my_loss_optimizer import cross_entropy, AdamW, gradient_clipping 
+from cs336_basics.transformer_lm.my_training_utils import data_loading, save_checkpoint, load_checkpoint, get_device, learning_rate_schedule
+from cs336_basics.transformer_lm.my_loss_optimizer import cross_entropy, AdamW, gradient_clipping 
+from cs336_basics.transformer_lm.my_transformer_block_elements import softmax
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Process training hyperparameters for an LLM.")
@@ -244,6 +247,8 @@ def llm_train_loop(
                     eps=eps_adamw, 
                     weight_decay=weight_decay)
 
+    optimizer=torch.optim.AdamW(model.parameters(), lr=0.001, betas=(beta1, beta2), eps=eps_adamw, weight_decay=weight_decay)
+
     training_data= np.memmap(filename=training_data_path, dtype=np.int32)
     validation_data=np.memmap(filename=validation_data_path, dtype=np.int32)
     
@@ -258,6 +263,11 @@ def llm_train_loop(
         
         # Forward (compute loss)
         training_pred_tensor = model(input_tensor_training)
+
+        #TODO: apply softmax here
+        training_pred_tensor=softmax(training_pred_tensor)
+        training_pred_tensor=rearrange(training_pred_tensor, ' "batch_size sequence_length vocab_size" -> (batch_size sequence_length) vocab_size')
+        targets_tensor_training=rearrange(targets_tensor_training, ' "batch_size sequence_length" -> (batch_size sequence_length)')
         training_loss = cross_entropy(training_pred_tensor, targets_tensor_training)
 
         # Calculate elapsed time
@@ -291,7 +301,7 @@ def llm_train_loop(
                         max_l2_norm=max_l2_norm)
         
         # Update parameters        
-        optimizer.learning_rate_schedule()     
+        # optimizer.learning_rate_schedule()     
         optimizer.step()
 
         # Record step time
@@ -302,11 +312,15 @@ def llm_train_loop(
 
         # Checkpointing 
         if t % checkpoint_interval == 0:
-            out = open(r"C:\Users\Andres.DESKTOP-D77KM25\OneDrive - Stanford\2021 - 2025\2023-2024\Spring\CS336 -  LLMs scratch\Assignments\Assignment 1\results\file.bin", "wb")
+            checkpoint_path = os.path.join("results", f"checkpoint_iter_{t}.bin")
+            os.makedirs(os.path.dirname(checkpoint_path), exist_ok=True)
+            out = open(checkpoint_path, "wb")
+            # out = open(r"C:\Users\Andres.DESKTOP-D77KM25\OneDrive - Stanford\2021 - 2025\2023-2024\Spring\CS336 -  LLMs scratch\Assignments\Assignment 1\results\file.bin", "wb")
             save_checkpoint(model=model,
                             optimizer=optimizer,
                             iteration=t,
                             out=out)
+    
     
     # Log final training time
     total_training_time = time.time() - total_start_time

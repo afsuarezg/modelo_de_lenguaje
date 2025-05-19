@@ -8,7 +8,7 @@ from cs336_basics.transformer_lm.my_embedding import Embedding
 from cs336_basics.transformer_lm.my_feedforward_swiglu import swiglu
 from cs336_basics.transformer_lm.my_linear import Linear
 from cs336_basics.transformer_lm.my_transformer_attention import causalMultiHeadSelfAttention
-from cs336_basics.transformer_lm.my_transformer_block_elements import positionwise_feedforward, RMSLayerNorm, softmax, cross_entropy
+from cs336_basics.transformer_lm.my_transformer_block_elements import positionwise_feedforward, RMSLayerNorm, softmax
 
 
 def transformer_block( d_model: int,
@@ -256,7 +256,6 @@ class my_transformer_lm(nn.Module):
                                        device=device,
                                        dtype=dtype)
         
-
     def forward(self, 
                 in_indices: torch.IntTensor, 
                 targets: torch.IntTensor=None) -> torch.FloatTensor:
@@ -286,9 +285,7 @@ class my_transformer_lm(nn.Module):
                  device=self.device,
                  dtype=self.dtype).forward(x=x)
         #TODO: apply softmax here
-        x=softmax(x)
 
-        if targets is not None:
-            x=cross_entropy(x, targets)
+        assert x.shape==(in_indices.shape[0], in_indices.shape[1], self.vocab_size), "The shape of the output is not correct"
 
         return x
