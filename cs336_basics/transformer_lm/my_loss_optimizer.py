@@ -106,20 +106,10 @@ class AdamW(torch.optim.Optimizer):
                 v_t = beta_2*prev_v_t + (1-beta_2)*grad.square()
                 #compute adjusted learning rate for iteration t
                 lr_t = lr * (math.sqrt(1 - (beta_2**t))) / (1 - (beta_1**t))
-                # print('lr:', lr)
                 #update parameters
                 p.data = p.data - lr_t*(m_t / (v_t.sqrt() + eps))
                 #apply weight decay 
                 p.data = p.data - lr*weight_decay*p.data
-                # m_t = beta_1 * prev_m_t + ((1 - beta_1) * grad)
-                # v_t = beta_2 * prev_v_t + ((1 - beta_2) * torch.square(grad))
-
-                # lr_t = lr * (math.sqrt(1 - (beta_2**t)) / (1 - (beta_1**t)))
-                # # print('lr:', alpha_t)
-                # p.data -= lr_t * m_t / (torch.sqrt(v_t) + eps)
-                # # Apply weight decay
-                # p.data -= lr * group["weight_decay"] * p.data
-
 
                 state['t'] = t+1
                 state['m'] = m_t

@@ -48,55 +48,6 @@ def positionwise_feedforward(
 
     return output
 
-
-class RMSLayerNorm_deprecated(nn.Module):
-    """Given the weights of a RMSNorm affine transform,
-    return the output of running RMSNorm on the input features.
-
-    Args:
-        d_model: int
-            The dimensionality of the RMSNorm input.
-        eps: float, default is 1e-5
-            A value added to the denominator for numerical stability.
-        weights: dict[str, torch.FloatTensor]
-            State dict of our reference implementation.
-            The keys of this dictionary are:
-            - `weight`
-                Weights of the RMSNorm affine transform.
-                Shape is (d_model,).
-        in_features: torch.FloatTensor
-            Input features to run RMSNorm on. Tensor of (*, d_model), where *
-            can be an arbitrary number of dimensions with arbitrary values.
-
-    Returns:
-        FloatTensor of with the same shape as `in_features` with the output of running
-        RMSNorm of the `in_features`.
-    """
-  
-    def __init__(self,
-                d_model: int,
-                eps: float, 
-                weights: Float[Tensor, " d_model"],
-                in_features: torch.FloatTensor,
-                weight_name:str,
-                device: torch.device|None=None,
-                dtype: torch.dtype| None=None) :
-        
-        super().__init__()
-        self.d_model = d_model
-        self.eps = eps
-        self.weights = weights
-        self.in_features = in_features
-        self.weight_name = weight_name
-
-    def forward(self)-> torch.FloatTensor:
-        denominator = self.in_features.square()
-        denominator =torch.mean(denominator, dim=-1, keepdim=True)
-        denominator=denominator+self.eps    
-        denominator=denominator.sqrt()                           
-        return self.in_features.divide(denominator)*self.weights[self.weight_name]
-    
-
 class RMSLayerNorm(nn.Module):
 
     def __init__(self, 

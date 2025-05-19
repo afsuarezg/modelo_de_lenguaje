@@ -8,7 +8,7 @@ from cs336_basics.transformer_lm.my_embedding import Embedding
 from cs336_basics.transformer_lm.my_feedforward_swiglu import swiglu
 from cs336_basics.transformer_lm.my_linear import Linear
 from cs336_basics.transformer_lm.my_transformer_attention import causalMultiHeadSelfAttention
-from cs336_basics.transformer_lm.my_transformer_block_elements import positionwise_feedforward, RMSLayerNorm, softmax
+from cs336_basics.transformer_lm.my_transformer_block_elements import positionwise_feedforward, RMSLayerNorm, softmax, cross_entropy
 
 
 def transformer_block( d_model: int,
@@ -225,12 +225,12 @@ class my_transformer_lm(nn.Module):
                  d_model: int,
                  num_heads: int,
                  d_ff: int,
-                 rope: bool,
                  rope_theta: float,
                  weights: dict[str, torch.FloatTensor],
                  vocab_size: int,
                  context_length: int,
                  num_layers: int, 
+                 rope: bool=True,
                  device: torch.device=torch.device('cpu'),
                  dtype: torch.dtype=torch.float32):
                          
@@ -258,7 +258,8 @@ class my_transformer_lm(nn.Module):
         
 
     def forward(self, 
-                in_indices: torch.IntTensor) -> torch.FloatTensor:
+                in_indices: torch.IntTensor, 
+                targets: torch.IntTensor=None) -> torch.FloatTensor:
         
         x=self.embedding_layer(in_indices)
 
@@ -284,5 +285,10 @@ class my_transformer_lm(nn.Module):
                  weights=self.weights['lm_head.weight'],
                  device=self.device,
                  dtype=self.dtype).forward(x=x)
-        
+        #TODO: apply softmax here
+        x=softmax(x)
+
+        if targets is not None:
+            x=cross_entropy(x, targets)
+
         return x

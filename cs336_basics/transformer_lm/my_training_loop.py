@@ -232,8 +232,7 @@ def llm_train_loop(
         context_length=context_length,
         num_layers=num_layers,
         device=device,
-        dtype=dtype
-    )
+        dtype=dtype)
 
     optimizer=AdamW(model.parameters(), 
                     it=0,
@@ -244,13 +243,12 @@ def llm_train_loop(
                     betas=(beta1, beta2),
                     eps=eps_adamw, 
                     weight_decay=weight_decay)
-    
-    optimizer.zero_grads(set_to_none=True)
-    
+
     training_data= np.memmap(filename=training_data_path, dtype=np.int32)
     validation_data=np.memmap(filename=validation_data_path, dtype=np.int32)
     
     for t in range(num_train_steps):
+        optimizer.zero_grads(set_to_none=True)
         step_start_time = time.time()  # Start timing this step
         
         input_tensor_training, targets_tensor_training = data_loading(dataset=training_data,
@@ -261,6 +259,10 @@ def llm_train_loop(
         # Forward (compute loss)
         training_pred_tensor = model(input_tensor_training)
         training_loss = cross_entropy(training_pred_tensor, targets_tensor_training)
+
+        # Calculate elapsed time
+        elapsed_time = time.time() - total_start_time
+        avg_step_time = sum(step_times) / len(step_times) if step_times else 0
         
         # Validation loss - now using validation_frequency
         if t % validation_frequency == 0:
@@ -271,10 +273,6 @@ def llm_train_loop(
             validation_pred_tensor = model(input_tensor_validation)
             validation_loss = cross_entropy(validation_pred_tensor, target_tensor_validation)
         
-            # Calculate elapsed time
-            elapsed_time = time.time() - total_start_time
-            avg_step_time = sum(step_times) / len(step_times) if step_times else 0
-            
             # Log training metrics to wandb
             wandb.log({
                 "step": t,
@@ -295,7 +293,6 @@ def llm_train_loop(
         # Update parameters        
         optimizer.learning_rate_schedule()     
         optimizer.step()
-        optimizer.zero_grads(set_to_none=True)
 
         # Record step time
         step_time = time.time() - step_start_time
