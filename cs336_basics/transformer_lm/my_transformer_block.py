@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 import torch
 import torch.nn as nn
-import sys
-import numpy as np
 from typing import Optional, List
 import torch.nn.functional as F
 
@@ -67,7 +65,8 @@ class my_transformer_block(nn.Module):
                 num_heads: int,
                 d_ff: int,
                 max_seq_len: int,
-                theta: float,
+                rope: bool,
+                rope_theta: float,
                 weights: dict[str, torch.FloatTensor],
                 in_features: torch.FloatTensor, 
                 iteration: int|None=None, 
@@ -79,7 +78,8 @@ class my_transformer_block(nn.Module):
         self.num_heads = num_heads
         self.d_ff = d_ff
         self.max_seq_len = max_seq_len
-        self.theta = theta
+        self.rope=rope
+        self.rope_theta = rope_theta
         self.in_features = in_features
         self.token_positions = torch.arange(0, max_seq_len, dtype=torch.int32)
         self.device = device
@@ -115,10 +115,10 @@ class my_transformer_block(nn.Module):
                                     k_proj_weight=self.weights['attn.k_proj.weight'],
                                     v_proj_weight=self.weights['attn.v_proj.weight'],
                                     o_proj_weight=self.weights['attn.output_proj.weight'], 
-                                    rope=True, 
+                                    rope=self.rope, 
                                     max_seq_len=self.max_seq_len,
                                     token_positions=self.token_positions,
-                                    theta=self.theta).forward(x=x)
+                                    theta=self.rope_theta).forward(x=x)
 
         x+=in_features
         return x
@@ -225,6 +225,7 @@ class my_transformer_lm(nn.Module):
                  d_model: int,
                  num_heads: int,
                  d_ff: int,
+                 rope: bool,
                  rope_theta: float,
                  weights: dict[str, torch.FloatTensor],
                  vocab_size: int,
@@ -239,6 +240,7 @@ class my_transformer_lm(nn.Module):
         self.d_model = d_model
         self.num_heads = num_heads
         self.d_ff = d_ff
+        self.rope = rope
         self.rope_theta = rope_theta    
         self.weights = weights
         self.vocab_size = vocab_size
@@ -265,7 +267,8 @@ class my_transformer_lm(nn.Module):
                                    num_heads=self.num_heads,
                                    d_ff=self.d_ff,
                                    max_seq_len=self.max_seq_len,
-                                   theta=self.rope_theta,
+                                   rope=self.rope,
+                                   rope_theta=self.rope_theta,
                                    weights=self.weights,
                                    in_features=x, 
                                    iteration=i).forward(in_features=x)

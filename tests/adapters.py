@@ -10,7 +10,6 @@ import torch
 from torch import Tensor
 
 #################################################################################
-
 from cs336_basics.transformer_lm.my_embedding import Embedding
 from cs336_basics.transformer_lm.my_feedforward_swiglu import swiglu, silu
 from cs336_basics.transformer_lm.my_generating_text import decoding
@@ -25,7 +24,6 @@ from cs336_basics.tokenizer.my_tokenizer import Tokenizer
 
 from cs336_basics.tokenizer.my_tokenizer import Tokenizer
 from cs336_basics.tokenizer.tas_train_bpe import train_bpe
-
 
 
 def run_linear(

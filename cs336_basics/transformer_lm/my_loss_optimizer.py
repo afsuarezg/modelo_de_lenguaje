@@ -49,26 +49,25 @@ class AdamW(torch.optim.Optimizer):
 
     def __init__(self, 
                  params, 
-                #  it:int,
-                #  max_learning_rate:float,
-                #  min_learning_rate:float,
-                #  warmup_iters:int, 
-                #  cosine_cycle_iters:int,
-                 lr=1e-3, 
+                 it:int=0,
+                 max_learning_rate:float=1e-4,
+                 min_learning_rate:float=1e-5,
+                 warmup_iters:int=1000,
+                 cosine_cycle_iters:int=10000,
                  betas=(0.9, 0.999), 
                  eps=1e-8, 
                  weight_decay=1e-2,):
         
-        self.lr=lr#
+        self.lr: float = None  # type annotation allows None initially but enforces float when set
         self.betas=betas#
         self.eps=eps#
         self.weight_decay=weight_decay#
         self.params=params
-        # self.it=it
-        # self.max_learning_rate=max_learning_rate
-        # self.min_learning_rate=min_learning_rate
-        # self.warmup_iters=warmup_iters
-        # self.cosine_cycle_iters=cosine_cycle_iters
+        self.it=it
+        self.max_learning_rate=max_learning_rate
+        self.min_learning_rate=min_learning_rate
+        self.warmup_iters=warmup_iters
+        self.cosine_cycle_iters=cosine_cycle_iters
         
         defaults = dict(lr=self.lr, betas=self.betas, eps=self.eps, weight_decay=weight_decay)
         super(AdamW, self).__init__(params, defaults)
@@ -129,36 +128,36 @@ class AdamW(torch.optim.Optimizer):
         return loss
 
 
-    # def learning_rate_schedule(self):
-    #     """
-    #     Given the parameters of a cosine learning rate decay schedule (with linear
-    #     warmup) and an iteration number, return the learning rate at the given
-    #     iteration under the specified schedule.
+    def learning_rate_schedule(self):
+        """
+        Given the parameters of a cosine learning rate decay schedule (with linear
+        warmup) and an iteration number, return the learning rate at the given
+        iteration under the specified schedule.
 
-    #     Args:
-    #         it: int
-    #             Iteration number to get learning rate for.
-    #         max_learning_rate: float
-    #             alpha_max, the maximum learning rate for
-    #             cosine learning rate schedule (with warmup).
-    #         min_learning_rate: float
-    #             alpha_min, the minimum / final learning rate for
-    #             the cosine learning rate schedule (with warmup).
-    #         warmup_iters: int
-    #             T_w, the number of iterations to linearly warm-up
-    #             the learning rate.
-    #         cosine_cycle_iters: int
-    #             T_c, the number of cosine annealing iterations.
+        Args:
+            it: int
+                Iteration number to get learning rate for.
+            max_learning_rate: float
+                alpha_max, the maximum learning rate for
+                cosine learning rate schedule (with warmup).
+            min_learning_rate: float
+                alpha_min, the minimum / final learning rate for
+                the cosine learning rate schedule (with warmup).
+            warmup_iters: int
+                T_w, the number of iterations to linearly warm-up
+                the learning rate.
+            cosine_cycle_iters: int
+                T_c, the number of cosine annealing iterations.
 
-    #     Returns:
-    #         Learning rate at the given iteration under the specified schedule.
-    #     """
-    #     if self.it < self.warmup_iters:
-    #         self.lr = (self.it/self.warmup_iters)*self.max_learning_rate
-    #     elif self.warmup_iters <= self.it <= self.cosine_cycle_iters:
-    #         self.lr = self.min_learning_rate + 0.5*(1 + math.cos((self.it-self.warmup_iters)/(self.cosine_cycle_iters - self.warmup_iters)*math.pi))*(self.max_learning_rate-self.min_learning_rate)
-    #     else:
-    #         self.lr = self.min_learning_rate
+        Returns:
+            Learning rate at the given iteration under the specified schedule.
+        """
+        if self.it < self.warmup_iters:
+            self.lr = (self.it/self.warmup_iters)*self.max_learning_rate
+        elif self.warmup_iters <= self.it <= self.cosine_cycle_iters:
+            self.lr = self.min_learning_rate + 0.5*(1 + math.cos((self.it-self.warmup_iters)/(self.cosine_cycle_iters - self.warmup_iters)*math.pi))*(self.max_learning_rate-self.min_learning_rate)
+        else:
+            self.lr = self.min_learning_rate
         
 
 
