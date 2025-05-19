@@ -58,16 +58,16 @@ class AdamW(torch.optim.Optimizer):
                  eps=1e-8, 
                  weight_decay=1e-2,):
         
-        self.lr: float = None  # type annotation allows None initially but enforces float when set
-        self.betas=betas#
-        self.eps=eps#
-        self.weight_decay=weight_decay#
         self.params=params
         self.it=it
         self.max_learning_rate=max_learning_rate
         self.min_learning_rate=min_learning_rate
         self.warmup_iters=warmup_iters
         self.cosine_cycle_iters=cosine_cycle_iters
+        self.betas=betas#
+        self.eps=eps#
+        self.weight_decay=weight_decay#
+        self.lr: float = None  # type annotation allows None initially but enforces float when set
         
         defaults = dict(lr=self.lr, betas=self.betas, eps=self.eps, weight_decay=weight_decay)
         super(AdamW, self).__init__(params, defaults)

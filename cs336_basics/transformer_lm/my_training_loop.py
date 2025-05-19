@@ -157,8 +157,9 @@ def llm_train_loop(
               checkpoint_dir:str="checkpoints",
               dtype:str="fp32",
               gradient_accumulation_steps:int=1,
-              validation_frequency:int=1000):
+              validation_frequency:int=1000)
     
+        
     device= (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
     
     # Track total training time
@@ -191,6 +192,7 @@ def llm_train_loop(
         weights[f'layers.{i}.ffn.w2.weight'] = torch.randn(d_ff, d_model)
         weights[f'layers.{i}.ffn.w3.weight'] = torch.randn(d_model, d_ff)
 
+    #wandb config
     wandb_config = {
         "name": training_name,
         "vocab_size": vocab_size,
@@ -219,7 +221,6 @@ def llm_train_loop(
     current_date = datetime.now().strftime("%Y-%m-%d")
     wandb.init(project="LLM_train", name=current_date, config=wandb_config)   
 
-    #TODO: add weights to the model
     model=my_transformer_lm(
         d_model=d_model,
         num_heads=num_heads,
@@ -235,6 +236,7 @@ def llm_train_loop(
     )
 
     optimizer=AdamW(model.parameters(), 
+                    it=0,
                     max_learning_rate=max_learning_rate,  # Use max_learning_rate as initial learning rate
                     min_learning_rate=min_learning_rate,
                     warmup_iters=warmup_iters,
