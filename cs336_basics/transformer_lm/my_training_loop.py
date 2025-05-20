@@ -7,7 +7,8 @@ import wandb
 import os
 import argparse
 from datetime import datetime
-import time
+import time    # Import tiktoken for tokenization
+import tiktoken
 
 from cs336_basics.transformer_lm.my_transformer_language_model import TransformerLM
 from cs336_basics.transformer_lm.my_transformer_block import my_transformer_lm
@@ -20,15 +21,15 @@ def parse_arguments():
  
     # Training name and data paths
     parser.add_argument("--name", type=str, default="default_training", help="Name of the training run.")
-    parser.add_argument("--training_data_path", type=str, required=True, help="Path to the training data file.")
-    parser.add_argument("--validation_data_path", type=str, required=True, help="Path to the validation data file.")
+    parser.add_argument("--training_data_path", type=str, default=r"C:\Users\Andres.DESKTOP-D77KM25\OneDrive - Stanford\2021 - 2025\2023-2024\Spring\CS336 -  LLMs scratch\Assignments\Assignment 1\repo-july24\data\TinyStoriesV2-GPT4-train.txt", help="Path to the training data file.")
+    parser.add_argument("--validation_data_path", type=str, default=r"C:\Users\Andres.DESKTOP-D77KM25\OneDrive - Stanford\2021 - 2025\2023-2024\Spring\CS336 -  LLMs scratch\Assignments\Assignment 1\repo-july24\data\TinyStoriesV2-GPT4-valid.txt", help="Path to the validation data file.")
     
     # Hardware parameters
     parser.add_argument("--device", type=str, default="cuda", help="Device to run the model on.")
     
     # Transformer architecture parameters
     parser.add_argument("--vocab_size", type=int, default=50257, help="Size of the vocabulary/number of tokens.")
-    parser.add_argument("--context_length", type=int, default=1024, help="The maximum number of tokens to process at once.")
+    parser.add_argument("--context_length", type=int, default=64, help="The maximum number of tokens to process at once.")
     parser.add_argument("--d_model", type=int, default=768, help="Dimensionality of the feedforward input and output.")
     parser.add_argument("--num_transformer_layers", type=int, default=12, help="Number of transformer layers in the model.")
     parser.add_argument("--num_heads", type=int, default=12, help="Number of heads to use in multi-head attention.")
@@ -79,90 +80,44 @@ def parse_arguments():
     return args
 
 
-def main():
-    args = parse_arguments()
+def llm_train_loop(training_name:str='default1',
+                training_data_path:str=r"C:\Users\Andres.DESKTOP-D77KM25\OneDrive - Stanford\2021 - 2025\2023-2024\Spring\CS336 - LLMs scratch\Assignments\Assignment 1\repo-july24\data\TinyStoriesV2-GPT4-train.txt" ,
+                validation_data_path:str=r"C:\Users\Andres.DESKTOP-D77KM25\OneDrive - Stanford\2021 - 2025\2023-2024\Spring\CS336 - LLMs scratch\Assignments\Assignment 1\repo-july24\data\TinyStoriesV2-GPT4-valid.txt",
+                vocab_size:int=50257,  # GPT-2 vocab size
+                context_length:int=64,  # Standard GPT-2 context length
+                d_model:int=768,  # Hidden dimension
+                num_layers:int=12,  # Number of transformer layers
+                d_ff:int=3072,  # Feed-forward dimension (4x d_model)
+                num_heads:int=12,  # Number of attention heads
+                eps_rmsnorm:float=1e-5,  # RMSNorm epsilon
+                warmup_steps:int=1000,
+                max_learning_rate:float=1e-4,  # Peak learning rate
+                min_learning_rate:float=1e-5,  # Minimum learning rate
+                warmup_iters:int=1000,  # Learning rate warmup iterations
+                cosine_cycle_iters:int=10000,  # Cosine cycle length
+                batch_size:int=32,  # Training batch size
+                optimizer:str="adamw",  # Optimizer choice
+                loss_function:str="cross_entropy",  # Loss function
+                num_epochs:int=10,  # Number of training epochs
+                max_l2_norm:float=1.0,  # Gradient clipping norm
+                in_indices:torch.LongTensor=None,  # Input token indices
+                num_train_steps:int=100,  # Total training steps
+                weight_decay:float=0.01,  # Weight decay coefficient
+                device:str="cuda",
+                rope:bool=True,
+                rope_theta:float=10000.0,
+                beta1:float=0.9,
+                beta2:float=0.999,
+                eps_adamw:float=1e-8,
+                gradient_clipping:float=1.0,
+                checkpoint_interval:int=5000,
+                checkpoint_dir:str="checkpoints",
+                dtype:str="fp32",
+                gradient_accumulation_steps:int=1,
+                validation_frequency:int=1000,
+                wandb_upload:bool=False):
     
-    print("Training Hyperparameters:")
-    for key, value in vars(args).items():
-        print(f"{key}: {value}")
-    
-    # Call llm_train_loop with parsed arguments
-    llm_train_loop(
-        training_name=args.name if hasattr(args, 'name') else "default_training",
-        training_data_path=args.training_data_path if hasattr(args, 'training_data_path') else "training_data.bin",
-        validation_data_path=args.validation_data_path if hasattr(args, 'validation_data_path') else "validation_data.bin",
-        vocab_size=args.vocab_size,
-        context_length=args.context_length,
-        d_model=args.d_model,
-        num_layers=args.num_transformer_layers,
-        d_ff=args.d_ff,
-        num_heads=args.num_heads,
-        eps_rmsnorm=args.eps_rmsnorm,
-        max_learning_rate=args.max_learning_rate,
-        min_learning_rate=args.min_learning_rate,
-        warmup_iters=args.warmup_iters,
-        cosine_cycle_iters=args.cosine_cycle_iters,
-        batch_size=args.batch_size,
-        optimizer=args.optimizer,
-        loss_function=args.loss_function,
-        num_epochs=args.num_epochs,
-        max_l2_norm=args.max_l2_norm,
-        num_train_steps=args.num_train_steps,
-        lr=args.lr if hasattr(args, 'lr') else 3e-4,
-        weight_decay=args.weight_decay,
-        device=args.device,
-        rope_theta=args.rope_theta,
-        beta1=args.beta1,
-        beta2=args.beta2,
-        eps_adamw=args.eps_adamw,
-        warmup_steps=args.warmup_steps,
-        gradient_clipping=args.gradient_clipping,
-        checkpoint_interval=args.checkpoint_interval,
-        checkpoint_dir=args.checkpoint_dir,
-        dtype=args.dtype,
-        gradient_accumulation_steps=args.gradient_accumulation_steps,
-        validation_frequency=args.validation_frequency
-    )
 
-def llm_train_loop(              
-              training_name:str,
-              training_data_path:str,
-              validation_data_path:str,
-              vocab_size:int=50257,  # GPT-2 vocab size
-              context_length:int=1024,  # Standard GPT-2 context length
-              d_model:int=768,  # Hidden dimension
-              num_layers:int=12,  # Number of transformer layers
-              d_ff:int=3072,  # Feed-forward dimension (4x d_model)
-              num_heads:int=12,  # Number of attention heads
-              eps_rmsnorm:float=1e-5,  # RMSNorm epsilon
-              max_learning_rate:float=1e-4,  # Peak learning rate
-              min_learning_rate:float=1e-5,  # Minimum learning rate
-              warmup_iters:int=1000,  # Learning rate warmup iterations
-              cosine_cycle_iters:int=10000,  # Cosine cycle length
-              batch_size:int=32,  # Training batch size
-              optimizer:str="adamw",  # Optimizer choice
-              loss_function:str="cross_entropy",  # Loss function
-              num_epochs:int=10,  # Number of training epochs
-              max_l2_norm:float=1.0,  # Gradient clipping norm
-              in_indices:torch.LongTensor=None,  # Input token indices
-              num_train_steps:int=1000,  # Total training steps
-              weight_decay:float=0.01,  # Weight decay coefficient
-              device:str="cuda",
-              rope:bool=True,
-              rope_theta:float=10000.0,
-              beta1:float=0.9,
-              beta2:float=0.999,
-              eps_adamw:float=1e-8,
-              warmup_iters:int=1000,
-              cosine_cycle_iters:int=10000,
-              gradient_clipping:float=1.0,
-              checkpoint_interval:int=5000,
-              checkpoint_dir:str="checkpoints",
-              dtype:str="fp32",
-              gradient_accumulation_steps:int=1,
-              validation_frequency:int=1000)
-    
-        
     device= (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
     
     # Track total training time
@@ -220,9 +175,10 @@ def llm_train_loop(
         "num_train_steps": num_train_steps,
         "weight_decay": weight_decay,
         "validation_frequency": validation_frequency}
-    
-    current_date = datetime.now().strftime("%Y-%m-%d")
-    wandb.init(project="LLM_train", name=current_date, config=wandb_config)   
+
+    if wandb_upload:
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        wandb.init(project="LLM_train", name=current_date, config=wandb_config)   
 
     model=my_transformer_lm(
         d_model=d_model,
@@ -247,20 +203,50 @@ def llm_train_loop(
                     eps=eps_adamw, 
                     weight_decay=weight_decay)
 
-    optimizer=torch.optim.AdamW(model.parameters(), lr=0.001, betas=(beta1, beta2), eps=eps_adamw, weight_decay=weight_decay)
+    optimizer=torch.optim.AdamW(model.parameters(), 
+                                lr=0.001, 
+                                betas=(beta1, beta2), 
+                                eps=eps_adamw, 
+                                weight_decay=weight_decay)
 
-    training_data= np.memmap(filename=training_data_path, dtype=np.int32)
-    validation_data=np.memmap(filename=validation_data_path, dtype=np.int32)
+    # Create tiktoken encoder using GPT-2 encoding
+    enc = tiktoken.get_encoding("gpt2")
+    # breakpoint()
+    # Read and encode training data lazily
+    training_chunks = []
+    with open(training_data_path, 'r', encoding='utf-8') as f:
+        # while chunk := f.read(1024 * 1024):  # Read 1MB at a time
+        content=f.read()
     
+    training_chunks.extend(enc.encode(content[:2000], allowed_special={'<|endoftext|>'}))
+    training_chunks = np.array(training_chunks, dtype=np.int32)
+    # training_chunks_tensor=torch.tensor(training_chunks, dtype=torch.int32)
+    
+    # Read and encode validation data lazily
+    validation_chunks = []
+    with open(validation_data_path, 'r', encoding='utf-8') as f:
+        # while chunk := f.read(1024 * 1024):  # Read 1MB at a time
+        content=f.read()
+    validation_chunks.extend(enc.encode(content[:2000], allowed_special={'<|endoftext|>'}))
+    validation_chunks = np.array(validation_chunks, dtype=np.int32)
+    # validation_chunks_tensor=torch.tensor(validation_chunks, dtype=torch.int32)
+
+    training_data=training_chunks
+    validation_data=validation_chunks
+
+    # training_data= np.memmap(filename=training_data_path, dtype=np.int32)
+    # validation_data=np.memmap(filename=validation_data_path, dtype=np.int32)
+   
     for t in range(num_train_steps):
-        optimizer.zero_grads(set_to_none=True)
+        optimizer.zero_grad(set_to_none=True)
         step_start_time = time.time()  # Start timing this step
-        
+
         input_tensor_training, targets_tensor_training = data_loading(dataset=training_data,
                                                             batch_size=batch_size,
                                                             context_length=context_length,
                                                             device=device)
         
+        breakpoint()
         # Forward (compute loss)
         training_pred_tensor = model(input_tensor_training)
 
@@ -280,7 +266,11 @@ def llm_train_loop(
                                                                         batch_size=batch_size,
                                                                         context_length=context_length,
                                                                         device=device)
+            
             validation_pred_tensor = model(input_tensor_validation)
+            validation_pred_tensor=softmax(validation_pred_tensor)
+            validation_pred_tensor=rearrange(validation_pred_tensor, ' "batch_size sequence_length vocab_size" -> (batch_size sequence_length) vocab_size')
+            target_tensor_validation=rearrange(target_tensor_validation, ' "batch_size sequence_length" -> (batch_size sequence_length)')
             validation_loss = cross_entropy(validation_pred_tensor, target_tensor_validation)
         
             # Log training metrics to wandb
@@ -328,6 +318,53 @@ def llm_train_loop(
         "total_training_time": total_training_time,
         "final_steps_per_second": num_train_steps / total_training_time
     })
+
+
+
+def main():
+    args = parse_arguments()
+    
+    print("Training Hyperparameters:")
+    for key, value in vars(args).items():
+        print(f"{key}: {value}")
+    
+    # Call llm_train_loop with parsed arguments
+    llm_train_loop(
+        training_name=args.name if hasattr(args, 'name') else "default_training",
+        training_data_path=args.training_data_path if hasattr(args, 'training_data_path') else "training_data.bin",
+        validation_data_path=args.validation_data_path if hasattr(args, 'validation_data_path') else "validation_data.bin",
+        vocab_size=args.vocab_size,
+        context_length=args.context_length,
+        d_model=args.d_model,
+        num_layers=args.num_transformer_layers,
+        d_ff=args.d_ff,
+        num_heads=args.num_heads,
+        eps_rmsnorm=args.eps_rmsnorm,
+        max_learning_rate=args.max_learning_rate,
+        min_learning_rate=args.min_learning_rate,
+        warmup_iters=args.warmup_iters,
+        cosine_cycle_iters=args.cosine_cycle_iters,
+        batch_size=args.batch_size,
+        optimizer=args.optimizer,
+        loss_function=args.loss_function,
+        num_epochs=args.num_epochs,
+        max_l2_norm=args.max_l2_norm,
+        num_train_steps=args.num_train_steps,
+        # lr=args.lr if hasattr(args, 'lr') else 3e-4,
+        weight_decay=args.weight_decay,
+        device=args.device,
+        rope_theta=args.rope_theta,
+        beta1=args.beta1,
+        beta2=args.beta2,
+        eps_adamw=args.eps_adamw,
+        warmup_steps=args.warmup_steps,
+        gradient_clipping=args.gradient_clipping,
+        checkpoint_interval=args.checkpoint_interval,
+        checkpoint_dir=args.checkpoint_dir,
+        dtype=args.dtype,
+        gradient_accumulation_steps=args.gradient_accumulation_steps,
+        validation_frequency=args.validation_frequency
+    )
 
 if __name__ == "__main__":
     main()

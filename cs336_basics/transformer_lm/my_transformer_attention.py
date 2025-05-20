@@ -14,7 +14,7 @@ torch.set_printoptions(threshold=float(500))
 np.set_printoptions(threshold=500)
 sys.path.insert(0, r'C:\Users\Andres.DESKTOP-D77KM25\OneDrive - Stanford\2021 - 2025\2023-2024\Spring\CS336 -  LLMs scratch\Assignments\Assignment 1\repo-feb25\tests')
 
-from common import FIXTURES_PATH
+# from common import FIXTURES_PATH
 
 from cs336_basics.transformer_lm.my_transformer_block_elements import softmax, RMSLayerNorm
 from cs336_basics.transformer_lm.my_rope import myRotaryPositionalEmbedding

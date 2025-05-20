@@ -284,7 +284,7 @@ class my_transformer_lm(nn.Module):
                  weights=self.weights['lm_head.weight'],
                  device=self.device,
                  dtype=self.dtype).forward(x=x)
-        #TODO: apply softmax here
+        #TODO: use targets to compute the loss
 
         assert x.shape==(in_indices.shape[0], in_indices.shape[1], self.vocab_size), "The shape of the output is not correct"
 

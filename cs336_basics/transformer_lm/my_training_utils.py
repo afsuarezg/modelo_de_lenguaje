@@ -40,7 +40,7 @@ def data_loading(
     assert len(dataset) > context_length, "Dataset must be longer than the context length."
     
     # Generate start indices for each batch
-    start_indices = np.random.randint(0, len(dataset) - context_length, size=batch_size)
+    start_indices = np.random.randint(0, len(dataset) - context_length - 1, size=batch_size)
     
     # Prepare input sequences and corresponding targets
     input_sequences = []
