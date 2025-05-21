@@ -17,7 +17,7 @@ def swiglu(d_model:int,
            in_features: Float[Tensor, " ... d_model"],
         ) -> Float[Tensor, " ... d_model"]:
         """Run the SwiGLU feedforward network using the given weights."""
-
+        breakpoint()
         def find_factors_with_multiple_of_64(result):
             """
             Finds and returns a tuple (a, b) such that:
