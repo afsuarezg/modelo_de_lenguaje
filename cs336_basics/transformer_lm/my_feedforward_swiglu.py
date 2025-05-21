@@ -17,7 +17,7 @@ def swiglu(d_model:int,
            in_features: Float[Tensor, " ... d_model"],
         ) -> Float[Tensor, " ... d_model"]:
         """Run the SwiGLU feedforward network using the given weights."""
-        breakpoint()
+
         def find_factors_with_multiple_of_64(result):
             """
             Finds and returns a tuple (a, b) such that:
@@ -32,12 +32,12 @@ def swiglu(d_model:int,
                     b = result // a
                     return a, b
             return None  # No such pair found
-        
-        d_model_, d_ff_ = find_factors_with_multiple_of_64(d_model*d_ff)
+        breakpoint()
+        # d_model_, d_ff_ = find_factors_with_multiple_of_64(d_model*d_ff)
 
-        w1_weight = rearrange(w1_weight, "d_ff d_model -> d_ff d_model", d_model=d_model_)
-        w2_weight = rearrange(w2_weight, "d_model d_ff -> d_model d_ff", d_model=d_model_)
-        w3_weight = rearrange(w3_weight, "d_ff d_model -> d_ff d_model", d_model=d_model_)
+        w1_weight = rearrange(w1_weight, "d_ff d_model -> d_ff d_model", d_model=d_model)
+        w2_weight = rearrange(w2_weight, "d_model d_ff -> d_model d_ff", d_model=d_model)
+        w3_weight = rearrange(w3_weight, "d_ff d_model -> d_ff d_model", d_model=d_model)
 
         # Project input using W1 and W3: shape (..., d_model) -> (..., d_ff)
         x1=einsum(in_features, w1_weight, "... d_model, d_ff d_model -> ... d_ff" )
