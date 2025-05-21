@@ -32,7 +32,7 @@ def swiglu(d_model:int,
                     b = result // a
                     return a, b
             return None  # No such pair found
-        breakpoint()
+
         # d_model_, d_ff_ = find_factors_with_multiple_of_64(d_model*d_ff)
 
         w1_weight = rearrange(w1_weight, "d_ff d_model -> d_ff d_model", d_model=d_model)

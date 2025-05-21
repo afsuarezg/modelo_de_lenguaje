@@ -84,7 +84,7 @@ class my_transformer_block(nn.Module):
                          weights=self.weights['ln2.weight'],
                          device=self.device,    
                          dtype=self.dtype).forward(x=in_features)
-                         
+
         x = swiglu(d_model=self.d_model,
                   d_ff=self.d_ff,
                   w1_weight=self.weights['ffn.w1.weight'],
@@ -99,7 +99,7 @@ class my_transformer_block(nn.Module):
     def forward(self, 
                 in_features: torch.FloatTensor) -> torch.FloatTensor:
         x= self.multihead_self_attention_sublayer(in_features=in_features)
-        breakpoint()
+
         x= self.positionwise_feedforward_sublayer(in_features=x)
         return x
 
@@ -224,14 +224,17 @@ class my_transformer_lm(nn.Module):
                                    rope_theta=self.rope_theta,
                                    weights=self.weights,
                                    in_features=x, 
-                                   iteration=i).forward(in_features=x)
+                                   iteration=i, 
+                                   device=self.device,
+                                   dtype=self.dtype).forward(in_features=x)
             
+        # breakpoint()
         x=RMSLayerNorm(d_model=self.d_model,
                        eps=1e-5,
                        weights=self.weights['ln_final.weight'],
                        device=self.device,
                        dtype=self.dtype).forward(x=x)
-        
+
         x=Linear(d_in=self.d_model,
                  d_out=self.vocab_size,
                  weights=self.weights['lm_head.weight'],

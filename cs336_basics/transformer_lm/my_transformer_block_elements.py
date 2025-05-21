@@ -56,11 +56,11 @@ class RMSLayerNorm(nn.Module):
                  weights:Float[Tensor, " d_model"], 
                  device: torch.device | None = None,
                  dtype: torch.dtype | None=None):
-        
+
         super().__init__()
         self.d_model=d_model
         self.eps=eps
-        weights=weights.to(dtype=dtype, device=device)
+        weights=weights.to(device=device, dtype=dtype)
         self.weights= nn.Parameter(weights)        
 
 

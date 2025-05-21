@@ -14,6 +14,7 @@ from cs336_basics.transformer_lm.my_transformer_block import my_transformer_lm
 from cs336_basics.transformer_lm.my_training_utils import data_loading, save_checkpoint, load_checkpoint, get_device, learning_rate_schedule
 from cs336_basics.transformer_lm.my_loss_optimizer import cross_entropy, AdamW, gradient_clipping 
 from cs336_basics.transformer_lm.my_transformer_block_elements import softmax
+from cs336_basics.transformer_lm.my_parser_utils import parse_device, parse_dtype
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Process training hyperparameters for an LLM.")
@@ -24,7 +25,8 @@ def parse_arguments():
     parser.add_argument("--validation_data_path", type=str, default=r"C:\Users\Andres.DESKTOP-D77KM25\OneDrive - Stanford\2021 - 2025\2023-2024\Spring\CS336 -  LLMs scratch\Assignments\Assignment 1\repo-july24\data\TinyStoriesV2-GPT4-valid.txt", help="Path to the validation data file.")
     
     # Hardware parameters
-    parser.add_argument("--device", type=str, default="cuda", help="Device to run the model on.")
+    parser.add_argument("--device", type=parse_device, default="cuda", help="Device to run the model on.")
+    
     
     # Transformer architecture parameters
     parser.add_argument("--vocab_size", type=int, default=50257, help="Size of the vocabulary/number of tokens.")
@@ -57,7 +59,7 @@ def parse_arguments():
     parser.add_argument("--min_learning_rate", type=float, default=1e-5, help="The minimum learning rate for cosine learning rate schedule.")
 
     # Gradient clipping parameters
-    parser.add_argument("--gradient_clipping", type=float, default=1.0, help="Maximum gradient norm for clipping.")
+    parser.add_argument("--gradient_clipping_factor", type=float, default=1.0, help="Maximum gradient norm for clipping.")
     parser.add_argument("--max_l2_norm", type=float, default=1.0, help="A positive value containing the maximum l2-norm.")
     
     # Training loop parameters
@@ -73,7 +75,8 @@ def parse_arguments():
     parser.add_argument("--checkpoint_dir", type=str, default="checkpoints", help="Directory to save model checkpoints.")
 
     # Precision parameters
-    parser.add_argument("--dtype", type=str, choices=["fp32", "fp16", "bf16"], default="fp32", help="Floating-point precision type.")
+    # parser.add_argument("--dtype", type=str, choices=["fp32", "fp16", "bf16"], default="fp32", help="Floating-point precision type.")
+    parser.add_argument("--dtype", type=parse_dtype, default="fp32", help="Floating-point precision type.")
 
     # Additional settings
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1, help="Number of steps before performing a gradient update.")
@@ -105,16 +108,16 @@ def llm_train_loop(training_name:str,#='default1',
                 in_indices:torch.LongTensor,#=None,  # Input token indices
                 num_train_steps:int,#=100,  # Total training steps
                 weight_decay:float,#=0.01,  # Weight decay coefficient
-                device:str,#="cuda",
+                device:type,#="cuda",
                 rope:bool,#=True,
                 rope_theta:float,#=10000.0,
                 beta1:float,#=0.9,
                 beta2:float,#=0.999,
                 eps_adamw:float,#=1e-8,
-                gradient_clipping:float,#=1.0,
+                gradient_clipping_factor:float,#=1.0,
                 checkpoint_interval:int,#=5000, 
                 checkpoint_dir:str,#="checkpoints",
-                dtype:str,#="fp32",
+                dtype:type,#="fp32",
                 gradient_accumulation_steps:int,#=1,
                 validation_frequency:int,#=1000,
                 wandb_upload:bool):#=False):
@@ -148,9 +151,9 @@ def llm_train_loop(training_name:str,#='default1',
         weights[f'layers.{i}.ln2.weight'] = torch.randn(d_model)
 
         # Feedforward weights
-        weights[f'layers.{i}.ffn.w1.weight'] = torch.randn(d_model, d_ff)
-        weights[f'layers.{i}.ffn.w2.weight'] = torch.randn(d_ff, d_model)
-        weights[f'layers.{i}.ffn.w3.weight'] = torch.randn(d_model, d_ff)
+        weights[f'layers.{i}.ffn.w1.weight'] = torch.randn(d_ff, d_model)
+        weights[f'layers.{i}.ffn.w2.weight'] = torch.randn(d_model, d_ff)
+        weights[f'layers.{i}.ffn.w3.weight'] = torch.randn(d_ff, d_model)
 
     #wandb config
     if wandb_upload:
@@ -239,7 +242,8 @@ def llm_train_loop(training_name:str,#='default1',
 
     # training_data= np.memmap(filename=training_data_path, dtype=np.int32)
     # validation_data=np.memmap(filename=validation_data_path, dtype=np.int32)
-   
+    print('training')
+
     for t in range(num_train_steps):
         optimizer.zero_grad(set_to_none=True)
         step_start_time = time.time()  # Start timing this step
@@ -255,10 +259,10 @@ def llm_train_loop(training_name:str,#='default1',
 
         #TODO: apply softmax here
         training_pred_tensor=softmax(training_pred_tensor)
-        training_pred_tensor=rearrange(training_pred_tensor, ' "batch_size sequence_length vocab_size" -> (batch_size sequence_length) vocab_size')
-        targets_tensor_training=rearrange(targets_tensor_training, ' "batch_size sequence_length" -> (batch_size sequence_length)')
+        training_pred_tensor=rearrange(training_pred_tensor, "batch_size sequence_length vocab_size -> (batch_size sequence_length) vocab_size")
+        targets_tensor_training=rearrange(targets_tensor_training, "batch_size sequence_length -> (batch_size sequence_length)")
         training_loss = cross_entropy(training_pred_tensor, targets_tensor_training)
-
+        print(training_loss)
         # Calculate elapsed time
         elapsed_time = time.time() - total_start_time
         avg_step_time = sum(step_times) / len(step_times) if step_times else 0
@@ -272,8 +276,8 @@ def llm_train_loop(training_name:str,#='default1',
             
             validation_pred_tensor = model(input_tensor_validation)
             validation_pred_tensor=softmax(validation_pred_tensor)
-            validation_pred_tensor=rearrange(validation_pred_tensor, ' "batch_size sequence_length vocab_size" -> (batch_size sequence_length) vocab_size')
-            target_tensor_validation=rearrange(target_tensor_validation, ' "batch_size sequence_length" -> (batch_size sequence_length)')
+            validation_pred_tensor=rearrange(validation_pred_tensor, "batch_size sequence_length vocab_size -> (batch_size sequence_length) vocab_size")
+            target_tensor_validation=rearrange(target_tensor_validation, "batch_size sequence_length -> (batch_size sequence_length)")
             validation_loss = cross_entropy(validation_pred_tensor, target_tensor_validation)
         
             # Log training metrics to wandb
@@ -291,6 +295,7 @@ def llm_train_loop(training_name:str,#='default1',
 
         # Backward (compute gradients)
         training_loss.backward()
+        # breakpoint()
         gradient_clipping(model.parameters(),
                         max_l2_norm=max_l2_norm)
         
@@ -363,7 +368,7 @@ def main():
         beta2=args.beta2,
         eps_adamw=args.eps_adamw,
         warmup_steps=args.warmup_steps,
-        gradient_clipping=args.gradient_clipping,
+        gradient_clipping_factor=args.gradient_clipping_factor,
         checkpoint_interval=args.checkpoint_interval,
         checkpoint_dir=args.checkpoint_dir,
         dtype=args.dtype,
