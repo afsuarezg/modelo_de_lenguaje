@@ -17,7 +17,7 @@ from cs336_basics.transformer_lm.my_linear import Linear
 from cs336_basics.transformer_lm.my_loss_optimizer import cross_entropy, AdamW, gradient_clipping
 from cs336_basics.transformer_lm.my_rope import myRotaryPositionalEmbedding
 from cs336_basics.transformer_lm.my_training_utils import data_loading, save_checkpoint, load_checkpoint, get_device, learning_rate_schedule
-from cs336_basics.transformer_lm.my_transformer_attention import causalMultiHeadSelfAttention, scaled_dot_product_attention, CausalMultiHeadSelfAttention_noneinops
+from cs336_basics.transformer_lm.my_transformer_attention import causalMultiHeadSelfAttention, scaled_dot_product_attention
 from cs336_basics.transformer_lm.my_transformer_block import my_transformer_block, my_transformer_lm
 from cs336_basics.transformer_lm.my_transformer_block_elements import softmax, RMSLayerNorm
 from cs336_basics.tokenizer.my_tokenizer import Tokenizer

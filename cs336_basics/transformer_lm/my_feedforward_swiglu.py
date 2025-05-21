@@ -1,4 +1,4 @@
-from einops import rearrange
+from einops import rearrange, einsum
 from jaxtyping import Float
 import torch 
 from torch import Tensor
@@ -40,13 +40,13 @@ def swiglu(d_model:int,
         w3_weight = rearrange(w3_weight, "d_ff d_model -> d_ff d_model", d_model=d_model_)
 
         # Project input using W1 and W3: shape (..., d_model) -> (..., d_ff)
-        x1 = torch.matmul(in_features, w1_weight.T)  # (..., d_ff)
-        x2 = torch.matmul(in_features, w3_weight.T)  # (..., d_ff)
+        x1=einsum(in_features, w1_weight, "... d_model, d_ff d_model -> ... d_ff" )
+        x3=einsum(in_features, w3_weight, "... d_model, d_ff d_model -> ... d_ff" )
 
         # SwiGLU activation: Swish(x1) * x2
-        swiglu_output = silu(x1) * x2  # (..., d_ff)
+        swiglu_output = silu(x1) * x3  # (..., d_ff)
 
         # Down-project back to d_model using W2
-        output = torch.matmul(swiglu_output, w2_weight.T)  # (..., d_model)
+        output=einsum(swiglu_output, w2_weight, "... d_ff, d_model d_ff -> ... d_model" )
 
         return output

@@ -6,7 +6,7 @@ import numpy as np
 from typing import Optional, List
 import torch.nn.functional as F
 
-from cs336_basics.transformer_lm.my_transformer_block import transformer_block
+from cs336_basics.transformer_lm.my_transformer_block import my_transformer_block
 from cs336_basics.transformer_lm.my_transformer_block_elements import RMSLayerNorm, softmax
 
 
