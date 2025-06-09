@@ -29,12 +29,12 @@ def parse_arguments():
     
     
     # Transformer architecture parameters
-    parser.add_argument("--vocab_size", type=int, default=50257, help="Size of the vocabulary/number of tokens.")
-    parser.add_argument("--context_length", type=int, default=64, help="The maximum number of tokens to process at once.")
+    parser.add_argument("--vocab_size", type=int, default=50304, help="Size of the vocabulary/number of tokens.")
+    parser.add_argument("--context_length", type=int, default=32, help="The maximum number of tokens to process at once.")
     parser.add_argument("--d_model", type=int, default=768, help="Dimensionality of the feedforward input and output.")
     parser.add_argument("--num_transformer_layers", type=int, default=12, help="Number of transformer layers in the model.")
     parser.add_argument("--num_heads", type=int, default=12, help="Number of heads to use in multi-head attention.")
-    parser.add_argument("--max_seq_len", type=int, default=1024, help="The maximum sequence length for the model.")
+    parser.add_argument("--max_seq_len", type=int, default=128, help="The maximum sequence length for the model.")
     parser.add_argument("--d_ff", type=int, default=3072, help="Dimensionality of the feedforward network's inner layer.")
     parser.add_argument("--rope_theta", type=float, default=10000.0, help="Base value for RoPE positional embeddings.")
     parser.add_argument("--eps_rmsnorm", type=float, default=1e-5, help="A value added to the denominator for numerical stability.")
@@ -64,7 +64,7 @@ def parse_arguments():
     
     # Training loop parameters
     parser.add_argument("--num_train_steps", type=int, default=1000, help="Total number of training steps.")
-    parser.add_argument("--batch_size", type=int, default=32, help="Number of training examples per batch.")    
+    parser.add_argument("--batch_size", type=int, default=4, help="Number of training examples per batch.")    
     parser.add_argument("--num_epochs", type=int, default=10, help="Total number of training epochs.")
     parser.add_argument("--validation_frequency", type=int, default=1000, help="Number of steps between validation runs.")
     parser.add_argument("--in_indices", type=torch.LongTensor, default=None, help="Input token indices.")
@@ -121,10 +121,9 @@ def llm_train_loop(training_name:str,#='default1',
                 gradient_accumulation_steps:int,#=1,
                 validation_frequency:int,#=1000,
                 wandb_upload:bool):#=False):
-    
-
+    breakpoint()
     device= (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
-    
+    breakpoint()
     # Track total training time
     total_start_time = time.time()
     step_times = []  # List to store time per step
@@ -185,7 +184,6 @@ def llm_train_loop(training_name:str,#='default1',
         current_date = datetime.now().strftime("%Y-%m-%d")
         wandb.init(project="LLM_train", name=current_date, config=wandb_config)   
 
-
     model=my_transformer_lm(
         d_model=d_model,
         num_heads=num_heads,
@@ -207,7 +205,8 @@ def llm_train_loop(training_name:str,#='default1',
                     cosine_cycle_iters=cosine_cycle_iters,
                     betas=(beta1, beta2),
                     eps=eps_adamw, 
-                    weight_decay=weight_decay)
+                    weight_decay=weight_decay, 
+                    lr=0.1)  
 
     optimizer=torch.optim.AdamW(model.parameters(), 
                                 lr=0.001, 
@@ -222,9 +221,9 @@ def llm_train_loop(training_name:str,#='default1',
     training_chunks = []
     with open(training_data_path, 'r', encoding='utf-8') as f:
         # while chunk := f.read(1024 * 1024):  # Read 1MB at a time
-        content=f.read()
+        training_content=f.read()
     
-    training_chunks.extend(enc.encode(content[:2000], allowed_special={'<|endoftext|>'}))
+    training_chunks.extend(enc.encode(training_content[:10000], allowed_special={'<|endoftext|>'}))
     training_chunks = np.array(training_chunks, dtype=np.int32)
     # training_chunks_tensor=torch.tensor(training_chunks, dtype=torch.int32)
     
@@ -232,14 +231,15 @@ def llm_train_loop(training_name:str,#='default1',
     validation_chunks = []
     with open(validation_data_path, 'r', encoding='utf-8') as f:
         # while chunk := f.read(1024 * 1024):  # Read 1MB at a time
-        content=f.read()
-    validation_chunks.extend(enc.encode(content[:2000], allowed_special={'<|endoftext|>'}))
+        validation_content=f.read()
+    validation_chunks.extend(enc.encode(validation_content[:10000], allowed_special={'<|endoftext|>'}))
     validation_chunks = np.array(validation_chunks, dtype=np.int32)
     # validation_chunks_tensor=torch.tensor(validation_chunks, dtype=torch.int32)
 
     training_data=training_chunks
     validation_data=validation_chunks
 
+    #TODO: Esto todavía no funciona porque training_data_path y validation_data_path son strings, no arrays de ints ya encodificados. Hay que revisar la función para crear entrenar un bpe con datos de 
     # training_data= np.memmap(filename=training_data_path, dtype=np.int32)
     # validation_data=np.memmap(filename=validation_data_path, dtype=np.int32)
     print('training')
@@ -248,10 +248,13 @@ def llm_train_loop(training_name:str,#='default1',
         optimizer.zero_grad(set_to_none=True)
         step_start_time = time.time()  # Start timing this step
 
-        input_tensor_training, targets_tensor_training = data_loading(dataset=training_data,
-                                                            batch_size=batch_size,
-                                                            context_length=context_length,
-                                                            device=device)
+        input_tensor_training=torch.tensor(training_data[:batch_size*context_length], dtype=torch.long, device=device).view(batch_size, context_length)
+        targets_tensor_training=torch.tensor(training_data[1:batch_size*context_length+1], dtype=torch.long, device=device).view(batch_size, context_length)
+
+        # input_tensor_training, targets_tensor_training = data_loading(dataset=training_data,
+        #                                                     batch_size=batch_size,
+        #                                                     context_length=context_length,
+        #                                                     device=device)
         
    
         # Forward (compute loss)
@@ -268,7 +271,7 @@ def llm_train_loop(training_name:str,#='default1',
         avg_step_time = sum(step_times) / len(step_times) if step_times else 0
         
         # Validation loss - now using validation_frequency
-        if t % validation_frequency == 0:
+        if t % validation_frequency == 0 and t != 0:
             input_tensor_validation, target_tensor_validation = data_loading(dataset=validation_data,
                                                                         batch_size=batch_size,
                                                                         context_length=context_length,
@@ -295,11 +298,9 @@ def llm_train_loop(training_name:str,#='default1',
 
         # Backward (compute gradients)
         training_loss.backward()
-        # breakpoint()
-        gradient_clipping(model.parameters(),
-                        max_l2_norm=max_l2_norm)
+        gradient_clipping(model.parameters(), max_l2_norm=max_l2_norm)
         
-        # Update parameters        
+        # Update parameters     
         # optimizer.learning_rate_schedule()     
         optimizer.step()
 
@@ -310,7 +311,7 @@ def llm_train_loop(training_name:str,#='default1',
             step_times.pop(0)
 
         # Checkpointing 
-        if t % checkpoint_interval == 0:
+        if t % checkpoint_interval == 0 and t != 0:
             checkpoint_path = os.path.join("results", f"checkpoint_iter_{t}.bin")
             os.makedirs(os.path.dirname(checkpoint_path), exist_ok=True)
             out = open(checkpoint_path, "wb")
@@ -319,7 +320,8 @@ def llm_train_loop(training_name:str,#='default1',
                             optimizer=optimizer,
                             iteration=t,
                             out=out)
-    
+        
+        print(f'Step {t} completed | Training loss: {training_loss.item()} |lr: {optimizer.param_groups[0]["lr"]} | Avg step time: {avg_step_time} ')
     
     # Log final training time
     total_training_time = time.time() - total_start_time
@@ -334,9 +336,7 @@ def llm_train_loop(training_name:str,#='default1',
 def main():
     args = parse_arguments()
 
-    print("Training Hyperparameters:")
-    for key, value in vars(args).items():
-        print(f"{key}: {value}")
+
     
     # Call llm_train_loop with parsed arguments
     llm_train_loop(
@@ -380,5 +380,6 @@ def main():
     )
 
 if __name__ == "__main__":
+    print('Corrió')
     main()
     

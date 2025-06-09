@@ -10,7 +10,6 @@ import torch.nn.functional as F
 from typing import Optional, List
 
 
-
 def softmax(in_features: torch.FloatTensor,
              dim: int=-1) -> torch.FloatTensor:
     
@@ -58,6 +57,8 @@ class RMSLayerNorm(nn.Module):
                  dtype: torch.dtype | None=None):
 
         super().__init__()
+        self.device=device
+        self.dtype=dtype
         self.d_model=d_model
         self.eps=eps
         weights=weights.to(device=device, dtype=dtype)
@@ -69,8 +70,7 @@ class RMSLayerNorm(nn.Module):
         """
         Process an input tensor of shape (batch_size, sequence_length, d_model) and return a tensor of the same shape.
         """    
-        in_dtype=x.dtype
-        x=x.to(torch.float32)
+        x=x.to(dtype=self.dtype, device=self.device)
 
         x_ = x.pow(exponent=2)
         x_ = reduce(x_, "batch_size sequence_length d_model -> batch_size sequence_length", "sum")
@@ -79,8 +79,8 @@ class RMSLayerNorm(nn.Module):
         x_ = rearrange(x_, "batch_size sequence_length -> batch_size sequence_length 1")
         x = torch.div(x, x_)
         weights = rearrange(self.weights, "d_model -> 1 1 d_model")
-        x = x*weights
+        x = x*weights     
 
-        return x.to(in_dtype)
+        return x
         
     

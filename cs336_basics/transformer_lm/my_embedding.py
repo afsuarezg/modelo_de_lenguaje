@@ -1,10 +1,8 @@
-
 from einops import rearrange
 from jaxtyping import Float, Int
 import torch 
 from torch import Tensor
 import torch.nn as nn
-
 
 
 class Embedding(nn.Module):
@@ -16,9 +14,7 @@ class Embedding(nn.Module):
     def __init__(self, 
             vocab_size: int,
             d_model: int,
-            weights: Float[Tensor, "vocab_size d_model"],
-            device: torch.device|None=None,
-            dtype: torch.dtype|None=None): 
+            weights: Float[Tensor, "vocab_size d_model"]): 
         
         super().__init__()
         self.vocab_size=vocab_size

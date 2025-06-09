@@ -52,11 +52,14 @@ class AdamW(torch.optim.Optimizer):
                  it:int=0,
                  max_learning_rate:float=1e-4,
                  min_learning_rate:float=1e-5,
+                 lr:float=1e-4,
                  warmup_iters:int=1000,
                  cosine_cycle_iters:int=10000,
                  betas=(0.9, 0.999), 
                  eps=1e-8, 
-                 weight_decay=1e-2,):
+                 weight_decay=1e-2,
+                 device: torch.device|None=None,
+                 dtype: torch.dtype|None=None):
         
         self.params=params
         self.it=it
@@ -67,10 +70,13 @@ class AdamW(torch.optim.Optimizer):
         self.betas=betas#
         self.eps=eps#
         self.weight_decay=weight_decay#
-        self.lr: float = None  # type annotation allows None initially but enforces float when set
+        self.lr=lr # type annotation allows None initially but enforces float when set
+        self.device=device
+        self.dtype=dtype
         
-        defaults = dict(lr=self.lr, betas=self.betas, eps=self.eps, weight_decay=weight_decay)
-        super(AdamW, self).__init__(params, defaults)
+        defaults = dict(lr=self.lr, betas=self.betas, eps=self.eps, weight_decay=weight_decay, device=self.device, dtype=self.dtype)
+        super().__init__(params, defaults)
+
 
     def step(self, closure: Optional[Callable]=None):
         loss = None
@@ -105,6 +111,7 @@ class AdamW(torch.optim.Optimizer):
                 #update the second moment estimate 
                 v_t = beta_2*prev_v_t + (1-beta_2)*grad.square()
                 #compute adjusted learning rate for iteration t
+
                 lr_t = lr * (math.sqrt(1 - (beta_2**t))) / (1 - (beta_1**t))
                 #update parameters
                 p.data = p.data - lr_t*(m_t / (v_t.sqrt() + eps))
@@ -165,7 +172,7 @@ def gradient_clipping(
     Returns:
         None
     """
-    breakpoint()
+
     total_norm = 0.0
     for p in parameters:
         if p.grad is not None:
