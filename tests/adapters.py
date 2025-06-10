@@ -10,7 +10,7 @@ import torch
 from torch import Tensor
 
 from cs336_basics.transformer_lm.my_embedding import Embedding
-from cs336_basics.transformer_lm.my_feedforward_swiglu import swiglu, silu
+from cs336_basics.transformer_lm.my_feedforward_swiglu import swiglu, silu, SwiGLU
 from cs336_basics.transformer_lm.my_generating_text import decoding
 from cs336_basics.transformer_lm.my_linear import Linear
 from cs336_basics.transformer_lm.my_loss_optimizer import cross_entropy, AdamW, gradient_clipping
@@ -102,12 +102,17 @@ def run_swiglu(
     # swiglu.w1.weight.data = w1_weight
     # swiglu.w2.weight.data = w2_weight
     # swiglu.w3.weight.data = w3_weight
-    return swiglu(d_model=d_model,
+    # return swiglu(d_model=d_model,
+    #               d_ff=d_ff,
+    #               w1_weight=w1_weight,
+    #               w2_weight=w2_weight,
+    #               w3_weight=w3_weight,
+    #               in_features=in_features)
+    return SwiGLU(d_model=d_model,
                   d_ff=d_ff,
                   w1_weight=w1_weight,
                   w2_weight=w2_weight,
-                  w3_weight=w3_weight,
-                  in_features=in_features)
+                  w3_weight=w3_weight).forward(in_features=in_features)
 
 
 def run_scaled_dot_product_attention(

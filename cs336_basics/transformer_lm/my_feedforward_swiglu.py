@@ -63,6 +63,7 @@ class SwiGLU(nn.Module):
         self.w2 = nn.Parameter(rearrange(w2_weight, "d_model d_ff -> d_model d_ff"))
         self.w3 = nn.Parameter(rearrange(w3_weight, "d_ff d_model -> d_ff d_model"))
 
+
     def forward(self, in_features: Float[Tensor, "... d_model"]) -> Float[Tensor, "... d_model"]:
         """
         Run the SwiGLU feedforward computation.

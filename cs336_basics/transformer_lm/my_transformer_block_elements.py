@@ -62,7 +62,9 @@ class RMSLayerNorm(nn.Module):
         self.d_model=d_model
         self.eps=eps
         weights=weights.to(device=device, dtype=dtype)
-        self.weights= nn.Parameter(weights)        
+
+        self.weights= nn.Parameter(weights)
+        breakpoint()
 
 
     def forward(self,
@@ -70,7 +72,8 @@ class RMSLayerNorm(nn.Module):
         """
         Process an input tensor of shape (batch_size, sequence_length, d_model) and return a tensor of the same shape.
         """    
-        x=x.to(dtype=self.dtype, device=self.device)
+        in_dtype=x.dtype
+        x=x.to(dtype=torch.float32, device=self.device)
 
         x_ = x.pow(exponent=2)
         x_ = reduce(x_, "batch_size sequence_length d_model -> batch_size sequence_length", "sum")
@@ -81,6 +84,6 @@ class RMSLayerNorm(nn.Module):
         weights = rearrange(self.weights, "d_model -> 1 1 d_model")
         x = x*weights     
 
-        return x
+        return x.to(dtype=in_dtype)
         
     

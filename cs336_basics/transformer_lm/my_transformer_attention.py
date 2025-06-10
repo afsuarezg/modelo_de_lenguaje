@@ -15,7 +15,6 @@ np.set_printoptions(threshold=500)
 sys.path.insert(0, r'C:\Users\Andres.DESKTOP-D77KM25\OneDrive - Stanford\2021 - 2025\2023-2024\Spring\CS336 -  LLMs scratch\Assignments\Assignment 1\repo-feb25\tests')
 
 # from common import FIXTURES_PATH
-
 from cs336_basics.transformer_lm.my_transformer_block_elements import softmax, RMSLayerNorm
 from cs336_basics.transformer_lm.my_rope import myRotaryPositionalEmbedding
 # from cs336_basics.transformer_lm.rope_previous import RotaryPositionalEmbedding
@@ -92,10 +91,10 @@ class causalMultiHeadSelfAttention(nn.Module):
         assert q_proj_weight.shape[-1] == d_model, "La última dimensión de wq, wk, y wv no es igual a d_model ( donde d_model es el tamano del vector de embeddings para cada token)."
         assert q_proj_weight.shape[-2]%num_heads == 0
 
-        self.q_proj_weight=q_proj_weight
-        self.k_proj_weight=k_proj_weight
-        self.v_proj_weight=v_proj_weight
-        self.o_proj_weight=o_proj_weight
+        self.q_proj_weight=nn.Parameter(q_proj_weight)
+        self.k_proj_weight=nn.Parameter(k_proj_weight)
+        self.v_proj_weight=nn.Parameter(v_proj_weight)
+        self.o_proj_weight=nn.Parameter(o_proj_weight)
         self.d_model=d_model
         self.num_heads=num_heads
 
@@ -104,8 +103,11 @@ class causalMultiHeadSelfAttention(nn.Module):
         if self.rope:
             self.theta=theta
             self.max_seq_len=max_seq_len
-            self.rope_class = myRotaryPositionalEmbedding(theta=theta, d_k=self.d_k, max_seq_len=max_seq_len)
+            self.rope_class = myRotaryPositionalEmbedding(theta=theta, 
+                                                          d_k=self.d_k, 
+                                                          max_seq_len=max_seq_len)
             self.token_positions=token_positions
+
 
     def forward(self, x:Float[Tensor, " ... sequence_length d_in"])-> Float[Tensor, " ... sequence_length d_out"]:
         
