@@ -5,7 +5,7 @@ from typing import Optional, List
 import torch.nn.functional as F
 
 from cs336_basics.transformer_lm.my_embedding import Embedding
-from cs336_basics.transformer_lm.my_feedforward_swiglu import swiglu
+from cs336_basics.transformer_lm.my_feedforward_swiglu import swiglu, SwiGLU
 from cs336_basics.transformer_lm.my_linear import Linear
 from cs336_basics.transformer_lm.my_transformer_attention import causalMultiHeadSelfAttention
 from cs336_basics.transformer_lm.my_transformer_block_elements import positionwise_feedforward, RMSLayerNorm, softmax
@@ -57,13 +57,14 @@ class my_transformer_block(nn.Module):
                                        weights=self.weights['ln1.weight'],
                                        device=self.device,
                                        dtype=self.dtype)
-        
+        breakpoint()
         self.RMSLayerNorm2=RMSLayerNorm(d_model=self.d_model,
                                         eps=1e-5,
                                         weights=self.weights['ln2.weight'],
                                         device=self.device,
                                         dtype=self.dtype)
         
+        breakpoint()
         self.causalMultiHeadSelfAttention=causalMultiHeadSelfAttention(d_model=self.d_model,
                                                                        num_heads=self.num_heads,
                                                                        q_proj_weight=self.weights['attn.q_proj.weight'],
@@ -73,10 +74,9 @@ class my_transformer_block(nn.Module):
                                                                        rope=self.rope,
                                                                        max_seq_len=self.max_seq_len,    
                                                                        token_positions=self.token_positions,
-                                                                       theta=self.rope_theta,
-                                                                       device=self.device,
-                                                                       dtype=self.dtype)
+                                                                       theta=self.rope_theta)
         
+        breakpoint()
         self.positionwise_feedforward=positionwise_feedforward(d_model=self.d_model,
                                                                 d_ff=self.d_ff,
                                                                 w1_weight=self.weights['ffn.w1.weight'],
@@ -84,7 +84,7 @@ class my_transformer_block(nn.Module):
                                                                 w3_weight=self.weights['ffn.w3.weight'],
                                                                 device=self.device,
                                                                 dtype=self.dtype)
-        
+        breakpoint()
 
     def multihead_self_attention_sublayer(self, 
                                           in_features: torch.FloatTensor) -> torch.FloatTensor:

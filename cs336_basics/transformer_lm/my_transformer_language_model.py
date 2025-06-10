@@ -41,6 +41,10 @@ class TransformerLM(nn.Module):
         # self.absolute_pos_embeddings=nn.Embedding(context_length, d_model)
         self.batch_size=in_indices.shape[0]
         self.seq_length=in_indices.shape[1]
+        breakpoint()
+
+
+
 
     def forward(self):
         token_embeddings=F.embedding(self.in_indices, self.token_embeddings)

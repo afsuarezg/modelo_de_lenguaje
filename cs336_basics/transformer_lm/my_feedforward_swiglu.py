@@ -45,7 +45,9 @@ class SwiGLU(nn.Module):
                  d_ff: int,
                  w1_weight: Float[Tensor, "d_ff d_model"],
                  w2_weight: Float[Tensor, "d_model d_ff"],
-                 w3_weight: Float[Tensor, "d_ff d_model"]):
+                 w3_weight: Float[Tensor, "d_ff d_model"], 
+                 device: torch.device=torch.device('cpu'),
+                 dtype: torch.dtype=torch.float32):
         """
         SwiGLU feedforward layer implemented as a class module.
 
