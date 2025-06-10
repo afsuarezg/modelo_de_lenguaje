@@ -130,10 +130,10 @@ def llm_train_loop(training_name:str,#='default1',
     
     #initialize weights from scrath
     weights={
-        'token_embeddings.weight': torch.randn(vocab_size, d_model) ,
+        'token_embeddings.weight': torch.randn(vocab_size, d_model) *0.02,
         'ln_final.weight': torch.ones(d_model),
         'ln_final.bias': torch.zeros(d_model),
-        'lm_head.weight': torch.randn(vocab_size, d_model),
+        'lm_head.weight': torch.randn(vocab_size, d_model) *0.02,
         'lm_head.bias': torch.zeros(vocab_size)
     }
 
@@ -211,11 +211,11 @@ def llm_train_loop(training_name:str,#='default1',
                     weight_decay=weight_decay, 
                     lr=0.1)  
 
-    optimizer=torch.optim.AdamW(model.parameters(), 
-                                lr=0.001, 
-                                betas=(beta1, beta2), 
-                                eps=eps_adamw, 
-                                weight_decay=weight_decay)
+    # optimizer=torch.optim.AdamW(model.parameters(), 
+    #                             lr=0.001, 
+    #                             betas=(beta1, beta2), 
+    #                             eps=eps_adamw, 
+    #                             weight_decay=weight_decay)
 
     # Create tiktoken encoder using GPT-2 encoding
     enc = tiktoken.get_encoding("gpt2")
@@ -264,7 +264,7 @@ def llm_train_loop(training_name:str,#='default1',
         training_pred_tensor = model(input_tensor_training)
 
         #TODO: apply softmax here
-        training_pred_tensor=softmax(training_pred_tensor)
+        # training_pred_tensor=softmax(training_pred_tensor)
         training_pred_tensor=rearrange(training_pred_tensor, "batch_size sequence_length vocab_size -> (batch_size sequence_length) vocab_size")
         targets_tensor_training=rearrange(targets_tensor_training, "batch_size sequence_length -> (batch_size sequence_length)")
         training_loss = cross_entropy(training_pred_tensor, targets_tensor_training)
@@ -279,7 +279,7 @@ def llm_train_loop(training_name:str,#='default1',
         gradient_clipping(model.parameters(), max_l2_norm=max_l2_norm)
         
         # Update parameters     
-        # optimizer.learning_rate_schedule()     
+        optimizer.learning_rate_schedule()     
         optimizer.step()
 
         # Record step time
