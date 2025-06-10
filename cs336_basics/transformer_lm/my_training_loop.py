@@ -208,8 +208,7 @@ def llm_train_loop(training_name:str,#='default1',
                     cosine_cycle_iters=cosine_cycle_iters,
                     betas=(beta1, beta2),
                     eps=eps_adamw, 
-                    weight_decay=weight_decay, 
-                    lr=0.1)  
+                    weight_decay=weight_decay)  
 
     # optimizer=torch.optim.AdamW(model.parameters(), 
     #                             lr=0.001, 
