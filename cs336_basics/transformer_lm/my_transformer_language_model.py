@@ -57,7 +57,7 @@ class TransformerLM(nn.Module):
 
         #transformer blocks 
         for i in range(self.num_layers):
-            x = transformer_block(d_model=self.d_model,
+            x = my_transformer_block(d_model=self.d_model,
                                   num_heads=self.num_heads,
                                   attn_pdrop=self.attn_pdrop,
                                   residual_pdrop=self.residual_pdrop,
