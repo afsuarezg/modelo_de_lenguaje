@@ -329,8 +329,7 @@ def run_transformer_block(
                              d_ff=d_ff,
                              max_seq_len=max_seq_len,
                              theta=theta,
-                             weights=weights, 
-                             in_features=in_features,
+                             weights=weights
                              ).forward(in_features=in_features)
 
 

@@ -20,7 +20,6 @@ class my_transformer_block(nn.Module):
                 max_seq_len: int,
                 theta: float,
                 weights: dict[str, torch.FloatTensor],
-                in_features: torch.FloatTensor, 
                 rope: bool=True,
                 iteration: int|None=None, 
                 device: torch.device=torch.device('cpu'),
@@ -33,7 +32,6 @@ class my_transformer_block(nn.Module):
         self.max_seq_len = max_seq_len
         self.rope=rope
         self.rope_theta = theta
-        self.in_features = in_features
         self.token_positions = torch.arange(0, max_seq_len, dtype=torch.int32)
         self.device = device
         self.dtype = dtype
@@ -85,57 +83,6 @@ class my_transformer_block(nn.Module):
                         w3_weight=self.weights['ffn.w3.weight'])
               
 
-    def multihead_self_attention_sublayer(self, 
-                                          in_features: torch.FloatTensor) -> torch.FloatTensor:
-
-        x = RMSLayerNorm(d_model=self.d_model,
-                         eps=1e-5,
-                         weights=self.weights['ln1.weight'],
-                         device=self.device,
-                         dtype=self.dtype).forward(x=in_features)
-
-        x = causalMultiHeadSelfAttention(d_model=self.d_model,
-                                    num_heads=self.num_heads,
-                                    q_proj_weight=self.weights['attn.q_proj.weight'],
-                                    k_proj_weight=self.weights['attn.k_proj.weight'],
-                                    v_proj_weight=self.weights['attn.v_proj.weight'],
-                                    o_proj_weight=self.weights['attn.output_proj.weight'], 
-                                    rope=self.rope, 
-                                    max_seq_len=self.max_seq_len,
-                                    token_positions=self.token_positions,
-                                    theta=self.rope_theta).forward(x=x)
-
-        x+=in_features
-        return x
-
-
-    def positionwise_feedforward_sublayer(self, 
-                                          in_features: torch.FloatTensor) -> torch.FloatTensor:
-        x = RMSLayerNorm(d_model=self.d_model,
-                         eps=1e-5,
-                         weights=self.weights['ln2.weight'],
-                         device=self.device,    
-                         dtype=self.dtype).forward(x=in_features)
-
-        x = swiglu(d_model=self.d_model,
-                  d_ff=self.d_ff,
-                  w1_weight=self.weights['ffn.w1.weight'],
-                  w2_weight=self.weights['ffn.w2.weight'],
-                  w3_weight=self.weights['ffn.w3.weight'],
-                  in_features=x)
-        
-        x+=in_features
-        return x
-
-     
-    def forward_(self, 
-                in_features: torch.FloatTensor) -> torch.FloatTensor:
-        x= self.multihead_self_attention_sublayer(in_features=in_features)
-
-        x= self.positionwise_feedforward_sublayer(in_features=x)
-        return x
-    
-
     def forward(self, 
                 in_features: torch.FloatTensor) -> torch.FloatTensor:
         
@@ -148,27 +95,6 @@ class my_transformer_block(nn.Module):
         in_feedforward=in_attention+in_feedforward
 
         return in_feedforward
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 class my_transformer_lm(nn.Module):
@@ -275,7 +201,34 @@ class my_transformer_lm(nn.Module):
                                        weights=self.weights['token_embeddings.weight'],
                                        device=device,
                                        dtype=dtype)
+        # breakpoint()
+        self.blocks=nn.ModuleList([my_transformer_block(d_model=self.d_model,
+                                            num_heads=self.num_heads,
+                                            d_ff=self.d_ff,
+                                            max_seq_len=self.max_seq_len,
+                                            rope=self.rope,
+                                            theta=self.rope_theta,
+                                            weights=self.weights,
+                                            iteration=i, 
+                                            device=self.device,
+                                            dtype=self.dtype) for i in range(self.num_layers)])
+        # breakpoint()        
+        self.RMSLayerNorm_final=RMSLayerNorm(d_model=self.d_model,
+                        eps=1e-5,
+                        weights=self.weights['ln_final.weight'],
+                        device=self.device,
+                        dtype=self.dtype)
         
+        # breakpoint()
+        self.linear_final=Linear(d_in=self.d_model,
+                 d_out=self.vocab_size,
+                 weights=self.weights['lm_head.weight'],
+                 device=self.device,
+                 dtype=self.dtype)
+        # breakpoint()
+
+
+
     def forward(self, 
                 in_indices: torch.IntTensor, 
                 targets: torch.IntTensor=None) -> torch.FloatTensor:
@@ -290,7 +243,6 @@ class my_transformer_lm(nn.Module):
                                    rope=self.rope,
                                    theta=self.rope_theta,
                                    weights=self.weights,
-                                   in_features=x, 
                                    iteration=i, 
                                    device=self.device,
                                    dtype=self.dtype).forward(in_features=x)
