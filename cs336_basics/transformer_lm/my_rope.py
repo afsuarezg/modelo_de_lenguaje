@@ -12,7 +12,7 @@ class myRotaryPositionalEmbedding(nn.Module):
         self.theta=theta
         self.d_k=d_k
         self.max_seq_len=max_seq_len
-        self.device=device
+        self.device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.ks=2*torch.arange(0, d_k/2).float()
         self.one_over_theta=1.0/(theta**(self.ks/d_k)).to(device)
         self.num_positions=torch.arange(max_seq_len)
@@ -21,6 +21,8 @@ class myRotaryPositionalEmbedding(nn.Module):
         
         self.blocks_diagonal_matrix=torch.stack(self.blocks, dim=0)
         self.blocks_diagonal_matrix=self.blocks_diagonal_matrix.numpy()
+
+    
         range_d_k=range(d_k)
         for blocks in self.blocks_diagonal_matrix:  
             blocks[range_d_k, range_d_k] = np.cos(blocks[range_d_k, range_d_k])
@@ -34,7 +36,10 @@ class myRotaryPositionalEmbedding(nn.Module):
         f=[e for e in range(0,d_k,2)]
         for blocks in self.blocks_diagonal_matrix: 
             blocks[e,f] = np.sin(blocks[e,f])
-        self.blocks_diagonal_matrix=torch.from_numpy(self.blocks_diagonal_matrix).to(torch.float32)
+        
+        blocks_diagonal_matrix=torch.from_numpy(self.blocks_diagonal_matrix).to(torch.float32)
+        self.blocks_diagonal_matrix=blocks_diagonal_matrix.to(self.device)
+
         
 
     def make_block_diag(self, n:int, values:List):
@@ -57,7 +62,7 @@ class myRotaryPositionalEmbedding(nn.Module):
 
         assert x.shape[-2]==len(token_positions), "x and token_positions must have the same sequence length"
         assert x.shape[-1]==self.d_k, "x must have the same number of columns as d_k"
-        # breakpoint()
+  
 
         # Get the block diagonal matrix for the current token positions
         rotated_vectors=einsum(self.blocks_diagonal_matrix[token_positions], x, " ... seq_len d_k d_a, ... seq_len d_a-> ... seq_len d_k")

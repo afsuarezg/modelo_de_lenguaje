@@ -229,7 +229,7 @@ class my_transformer_lm(nn.Module):
 
     def forward(self, 
                 in_indices:torch.IntTensor)-> torch.FloatTensor:
-        
+        in_indices=in_indices.to(self.device)
         x=self.embedding_layer(in_indices)
         for layer in self.transformer_blocks:
             x=layer(x)
@@ -238,41 +238,3 @@ class my_transformer_lm(nn.Module):
         x=self.linear_final(x=x)
         return x
 
-
-
-
-    def forward_prev(self, 
-                in_indices: torch.IntTensor, 
-                targets: torch.IntTensor=None) -> torch.FloatTensor:
-        
-        x=self.embedding_layer(in_indices)
-
-        for i in range(self.num_layers):
-            x=my_transformer_block(d_model=self.d_model,
-                                   num_heads=self.num_heads,
-                                   d_ff=self.d_ff,
-                                   max_seq_len=self.max_seq_len,
-                                   rope=self.rope,
-                                   theta=self.rope_theta,
-                                   weights=self.weights,
-                                   iteration=i, 
-                                   device=self.device,
-                                   dtype=self.dtype).forward(in_features=x)
-            
-        # breakpoint()
-        x=RMSLayerNorm(d_model=self.d_model,
-                       eps=1e-5,
-                       weights=self.weights['ln_final.weight'],
-                       device=self.device,
-                       dtype=self.dtype).forward(x=x)
-
-        x=Linear(d_in=self.d_model,
-                 d_out=self.vocab_size,
-                 weights=self.weights['lm_head.weight'],
-                 device=self.device,
-                 dtype=self.dtype).forward(x=x)
-        #TODO: use targets to compute the loss
-
-        assert x.shape==(in_indices.shape[0], in_indices.shape[1], self.vocab_size), "The shape of the output is not correct"
-
-        return x

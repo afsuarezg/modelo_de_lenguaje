@@ -97,6 +97,7 @@ class causalMultiHeadSelfAttention(nn.Module):
         self.o_proj_weight=nn.Parameter(o_proj_weight)
         self.d_model=d_model
         self.num_heads=num_heads
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         self.d_k = int(d_model/num_heads)
         self.rope=rope
@@ -106,7 +107,8 @@ class causalMultiHeadSelfAttention(nn.Module):
             self.rope_class = myRotaryPositionalEmbedding(theta=theta, 
                                                           d_k=self.d_k, 
                                                           max_seq_len=max_seq_len)
-            self.token_positions=token_positions
+            self.token_positions=token_positions.to(self.device)
+            
 
 
     def forward(self, x:Float[Tensor, " ... sequence_length d_in"])-> Float[Tensor, " ... sequence_length d_out"]:
@@ -120,6 +122,7 @@ class causalMultiHeadSelfAttention(nn.Module):
         xv=rearrange(xv, "... sequence_length (heads d_v_h) -> ... heads sequence_length d_v_h", heads=self.num_heads)
 
         if self.rope: 
+            
             xq=self.rope_class.forward(x=xq, token_positions=self.token_positions)
             xk=self.rope_class.forward(x=xk, token_positions=self.token_positions)
 

@@ -184,7 +184,6 @@ def llm_train_loop(training_name:str,#='default1',
         current_date = datetime.now().strftime("%Y-%m-%d")
         wandb.init(project="LLM_train", name=current_date, config=wandb_config)   
 
-    breakpoint()
     model=my_transformer_lm(
         d_model=d_model,
         num_heads=num_heads,
@@ -201,7 +200,6 @@ def llm_train_loop(training_name:str,#='default1',
     model.to(device)
 
 
-    breakpoint()
     optimizer=AdamW(model.parameters(), 
                     it=0,
                     max_learning_rate=max_learning_rate,
@@ -243,6 +241,7 @@ def llm_train_loop(training_name:str,#='default1',
 
     training_data=training_chunks
     validation_data=validation_chunks
+    breakpoint()
 
     #TODO: Esto todavía no funciona porque training_data_path y validation_data_path son strings, no arrays de ints ya encodificados. Hay que revisar la función para crear entrenar un bpe con datos de 
     # training_data= np.memmap(filename=training_data_path, dtype=np.int32)
@@ -271,10 +270,25 @@ def llm_train_loop(training_name:str,#='default1',
         targets_tensor_training=rearrange(targets_tensor_training, "batch_size sequence_length -> (batch_size sequence_length)")
         training_loss = cross_entropy(training_pred_tensor, targets_tensor_training)
         print(training_loss)
+
         # Calculate elapsed time
         elapsed_time = time.time() - total_start_time
         avg_step_time = sum(step_times) / len(step_times) if step_times else 0
+
+        # Backward (compute gradients)
+        training_loss.backward()
+        gradient_clipping(model.parameters(), max_l2_norm=max_l2_norm)
         
+        # Update parameters     
+        # optimizer.learning_rate_schedule()     
+        optimizer.step()
+
+        # Record step time
+        step_time = time.time() - step_start_time
+        step_times.append(step_time)
+        if len(step_times) > 100:  # Keep only last 100 steps for moving average
+            step_times.pop(0)
+
         # Validation loss - now using validation_frequency
         if t % validation_frequency == 0 and t != 0:
             input_tensor_validation, target_tensor_validation = data_loading(dataset=validation_data,
@@ -301,20 +315,6 @@ def llm_train_loop(training_name:str,#='default1',
                     "estimated_time_remaining": (num_train_steps - t) * avg_step_time if avg_step_time > 0 else 0  # ETA
                 })
 
-        # Backward (compute gradients)
-        training_loss.backward()
-        gradient_clipping(model.parameters(), max_l2_norm=max_l2_norm)
-        
-        # Update parameters     
-        # optimizer.learning_rate_schedule()     
-        optimizer.step()
-
-        # Record step time
-        step_time = time.time() - step_start_time
-        step_times.append(step_time)
-        if len(step_times) > 100:  # Keep only last 100 steps for moving average
-            step_times.pop(0)
-
         # Checkpointing 
         if t % checkpoint_interval == 0 and t != 0:
             checkpoint_path = os.path.join("results", f"checkpoint_iter_{t}.bin")
@@ -340,9 +340,7 @@ def llm_train_loop(training_name:str,#='default1',
 
 def main():
     args = parse_arguments()
-
-
-    
+   
     # Call llm_train_loop with parsed arguments
     llm_train_loop(
         training_name=args.name if hasattr(args, 'name') else "default_training",
