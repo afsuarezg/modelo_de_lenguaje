@@ -28,7 +28,7 @@ class Embedding(nn.Module):
             weights = rearrange(weights, f"{vocab_size} {d_model} -> {vocab_size} {d_model}")
         
         self.embeddings=nn.Parameter(weights).to(device)
-        breakpoint()
+
         
                 
     def forward(self, token_ids: torch.LongTensor)-> Float[Tensor, "... d_model"]:

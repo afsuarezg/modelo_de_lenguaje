@@ -225,7 +225,6 @@ class my_transformer_lm(nn.Module):
                  weights=self.weights['lm_head.weight'],
                  device=self.device,
                  dtype=self.dtype)
-        # breakpoint()
 
 
     def forward(self, 

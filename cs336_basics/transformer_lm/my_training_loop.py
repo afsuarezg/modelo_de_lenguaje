@@ -189,12 +189,12 @@ def llm_train_loop(training_name:str,#='default1',
         d_model=d_model,
         num_heads=num_heads,
         d_ff=d_ff,
-        rope=rope,
         rope_theta=rope_theta,
         weights=weights,
         vocab_size=vocab_size,
         context_length=context_length,
         num_layers=num_layers,
+        rope=rope,
         device=device,
         dtype=dtype)
     
