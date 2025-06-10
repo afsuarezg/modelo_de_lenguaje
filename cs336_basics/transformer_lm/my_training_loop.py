@@ -121,9 +121,9 @@ def llm_train_loop(training_name:str,#='default1',
                 gradient_accumulation_steps:int,#=1,
                 validation_frequency:int,#=1000,
                 wandb_upload:bool):#=False):
-    breakpoint()
+
     device= (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
-    breakpoint()
+
     # Track total training time
     total_start_time = time.time()
     step_times = []  # List to store time per step
@@ -184,6 +184,7 @@ def llm_train_loop(training_name:str,#='default1',
         current_date = datetime.now().strftime("%Y-%m-%d")
         wandb.init(project="LLM_train", name=current_date, config=wandb_config)   
 
+    breakpoint()
     model=my_transformer_lm(
         d_model=d_model,
         num_heads=num_heads,
@@ -196,7 +197,11 @@ def llm_train_loop(training_name:str,#='default1',
         num_layers=num_layers,
         device=device,
         dtype=dtype)
+    
+    model.to(device)
 
+
+    breakpoint()
     optimizer=AdamW(model.parameters(), 
                     it=0,
                     max_learning_rate=max_learning_rate,

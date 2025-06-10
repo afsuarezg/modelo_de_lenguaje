@@ -18,10 +18,10 @@ class my_transformer_block(nn.Module):
                 num_heads: int,
                 d_ff: int,
                 max_seq_len: int,
-                rope: bool,
-                rope_theta: float,
+                theta: float,
                 weights: dict[str, torch.FloatTensor],
                 in_features: torch.FloatTensor, 
+                rope: bool=True,
                 iteration: int|None=None, 
                 device: torch.device=torch.device('cpu'),
                 dtype: torch.dtype=torch.float32): 
@@ -32,7 +32,7 @@ class my_transformer_block(nn.Module):
         self.d_ff = d_ff
         self.max_seq_len = max_seq_len
         self.rope=rope
-        self.rope_theta = rope_theta
+        self.rope_theta = theta
         self.in_features = in_features
         self.token_positions = torch.arange(0, max_seq_len, dtype=torch.int32)
         self.device = device
@@ -52,6 +52,39 @@ class my_transformer_block(nn.Module):
             self.weights['ffn.w2.weight']=weights[f'layers.{iteration}.ffn.w2.weight']
             self.weights['ffn.w3.weight']=weights[f'layers.{iteration}.ffn.w3.weight']
 
+        self.RMSLayerNorm1=RMSLayerNorm(d_model=self.d_model,
+                                       eps=1e-5,
+                                       weights=self.weights['ln1.weight'],
+                                       device=self.device,
+                                       dtype=self.dtype)
+        
+        self.RMSLayerNorm2=RMSLayerNorm(d_model=self.d_model,
+                                        eps=1e-5,
+                                        weights=self.weights['ln2.weight'],
+                                        device=self.device,
+                                        dtype=self.dtype)
+        
+        self.causalMultiHeadSelfAttention=causalMultiHeadSelfAttention(d_model=self.d_model,
+                                                                       num_heads=self.num_heads,
+                                                                       q_proj_weight=self.weights['attn.q_proj.weight'],
+                                                                       k_proj_weight=self.weights['attn.k_proj.weight'],
+                                                                       v_proj_weight=self.weights['attn.v_proj.weight'],
+                                                                       o_proj_weight=self.weights['attn.output_proj.weight'],
+                                                                       rope=self.rope,
+                                                                       max_seq_len=self.max_seq_len,    
+                                                                       token_positions=self.token_positions,
+                                                                       theta=self.rope_theta,
+                                                                       device=self.device,
+                                                                       dtype=self.dtype)
+        
+        self.positionwise_feedforward=positionwise_feedforward(d_model=self.d_model,
+                                                                d_ff=self.d_ff,
+                                                                w1_weight=self.weights['ffn.w1.weight'],
+                                                                w2_weight=self.weights['ffn.w2.weight'],
+                                                                w3_weight=self.weights['ffn.w3.weight'],
+                                                                device=self.device,
+                                                                dtype=self.dtype)
+        
 
     def multihead_self_attention_sublayer(self, 
                                           in_features: torch.FloatTensor) -> torch.FloatTensor:
@@ -221,7 +254,7 @@ class my_transformer_lm(nn.Module):
                                    d_ff=self.d_ff,
                                    max_seq_len=self.max_seq_len,
                                    rope=self.rope,
-                                   rope_theta=self.rope_theta,
+                                   theta=self.rope_theta,
                                    weights=self.weights,
                                    in_features=x, 
                                    iteration=i, 

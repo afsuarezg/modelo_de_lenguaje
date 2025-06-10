@@ -6,7 +6,7 @@ from typing import List
 
 	
 class myRotaryPositionalEmbedding(nn.Module):
-    def __init__(self, theta:float, d_k:int, max_seq_len:int, device:str=None):
+    def __init__(self, theta:float, d_k:int, max_seq_len:int, device:torch.device|None=None):
         super().__init__()
 
         self.theta=theta
@@ -52,7 +52,8 @@ class myRotaryPositionalEmbedding(nn.Module):
         """
 
         min_seq_len = min(x.shape[-2], token_positions.shape[-1])
-        token_positions = list(range(min_seq_len))
+        token_positions = torch.arange(min_seq_len, device=self.device)
+        # token_positions = list(range(min_seq_len))
 
         assert x.shape[-2]==len(token_positions), "x and token_positions must have the same sequence length"
         assert x.shape[-1]==self.d_k, "x must have the same number of columns as d_k"

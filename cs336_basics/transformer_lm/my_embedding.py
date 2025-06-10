@@ -14,17 +14,20 @@ class Embedding(nn.Module):
     def __init__(self, 
             vocab_size: int,
             d_model: int,
-            weights: Float[Tensor, "vocab_size d_model"]): 
+            weights: Float[Tensor, "vocab_size d_model"],
+            device: torch.device|None=None,
+            dtype: torch.dtype|None=None): 
         
         super().__init__()
         self.vocab_size=vocab_size
         self.d_model=d_model
-
+        self.device=device
+        self.dtype=dtype
         # x = rearrange(x, "... heads hidden2 -> ... (heads hidden2)")
         if weights.shape[1] != d_model:
             weights = rearrange(weights, f"{vocab_size} {d_model} -> {vocab_size} {d_model}")
         
-        self.embeddings=torch.nn.Parameter(weights)
+        self.embeddings=torch.nn.Parameter(weights).to(device)
         
                 
     def forward(self, token_ids: torch.LongTensor)-> Float[Tensor, "... d_model"]:
