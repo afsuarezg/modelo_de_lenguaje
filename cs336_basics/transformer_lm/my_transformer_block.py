@@ -202,7 +202,7 @@ class my_transformer_lm(nn.Module):
                                        device=device,
                                        dtype=dtype)
         # breakpoint()
-        self.blocks=nn.ModuleList([my_transformer_block(d_model=self.d_model,
+        self.transformer_blocks=nn.ModuleList([my_transformer_block(d_model=self.d_model,
                                             num_heads=self.num_heads,
                                             d_ff=self.d_ff,
                                             max_seq_len=self.max_seq_len,
@@ -228,8 +228,21 @@ class my_transformer_lm(nn.Module):
         # breakpoint()
 
 
-
     def forward(self, 
+                in_indices:torch.IntTensor)-> torch.FloatTensor:
+        
+        x=self.embedding_layer(in_indices)
+        for layer in self.transformer_blocks:
+            x=layer(x)
+        
+        x=self.RMSLayerNorm_final(x=x)
+        x=self.linear_final(x=x)
+        return x
+
+
+
+
+    def forward_prev(self, 
                 in_indices: torch.IntTensor, 
                 targets: torch.IntTensor=None) -> torch.FloatTensor:
         
