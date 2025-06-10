@@ -130,11 +130,11 @@ def llm_train_loop(training_name:str,#='default1',
     
     #initialize weights from scrath
     weights={
-        'token_embeddings.weight': torch.randn(vocab_size, d_model),
-        'ln_final.weight': torch.randn(d_model),
-        'ln_final.bias': torch.randn(d_model),
+        'token_embeddings.weight': torch.randn(vocab_size, d_model) ,
+        'ln_final.weight': torch.ones(d_model),
+        'ln_final.bias': torch.zeros(d_model),
         'lm_head.weight': torch.randn(vocab_size, d_model),
-        'lm_head.bias': torch.randn(vocab_size)
+        'lm_head.bias': torch.zeros(vocab_size)
     }
 
     # Add weights for each transformer layer
@@ -241,7 +241,6 @@ def llm_train_loop(training_name:str,#='default1',
 
     training_data=training_chunks
     validation_data=validation_chunks
-    breakpoint()
 
     #TODO: Esto todavía no funciona porque training_data_path y validation_data_path son strings, no arrays de ints ya encodificados. Hay que revisar la función para crear entrenar un bpe con datos de 
     # training_data= np.memmap(filename=training_data_path, dtype=np.int32)
