@@ -95,16 +95,7 @@ class my_transformer_block(nn.Module):
                          device=self.device,
                          dtype=self.dtype).forward(x=in_features)
 
-        x = causalMultiHeadSelfAttention(d_model=self.d_model,
-                                    num_heads=self.num_heads,
-                                    q_proj_weight=self.weights['attn.q_proj.weight'],
-                                    k_proj_weight=self.weights['attn.k_proj.weight'],
-                                    v_proj_weight=self.weights['attn.v_proj.weight'],
-                                    o_proj_weight=self.weights['attn.output_proj.weight'], 
-                                    rope=self.rope, 
-                                    max_seq_len=self.max_seq_len,
-                                    token_positions=self.token_positions,
-                                    theta=self.rope_theta).forward(x=x)
+        x = self.causalMultiHeadSelfAttention.forward(x=x)
 
         x+=in_features
         return x
@@ -131,8 +122,9 @@ class my_transformer_block(nn.Module):
      
     def forward(self, 
                 in_features: torch.FloatTensor) -> torch.FloatTensor:
-        x= self.multihead_self_attention_sublayer(in_features=in_features)
-
+        x=self.RMSLayerNorm1.forward(x=in_features)
+        x= self.multihead_self_attention_sublayer(in_features=x)
+        x= self.RMSLayerNorm2.forward(x=x)
         x= self.positionwise_feedforward_sublayer(in_features=x)
         return x
 
