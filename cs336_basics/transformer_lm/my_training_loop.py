@@ -275,7 +275,7 @@ def llm_train_loop(training_name:str,#='default1',
 
         # Backward (compute gradients)
         training_loss.backward()
-        gradient_clipping(model.parameters(), max_l2_norm=max_l2_norm)
+        # gradient_clipping(model.parameters(), max_l2_norm=max_l2_norm)
         
         # Update parameters     
         optimizer.learning_rate_schedule()     
