@@ -2,8 +2,7 @@ otros/
 wandb/
 results/*.bin
 prints_debug/*.pt
-*.pt
-checkpoint_iter_0.bin
+
 
 
 # Byte-compiled / optimized / DLL files
