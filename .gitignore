@@ -1,7 +1,7 @@
 otros/
 wandb/
 results/*.bin
-prints_debug/*.pt
+printsdebug/*
 
 
 
