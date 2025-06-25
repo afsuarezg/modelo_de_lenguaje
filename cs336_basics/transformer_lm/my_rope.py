@@ -69,7 +69,7 @@ class myRotaryPositionalEmbedding(nn.Module):
 
         # Save rotated vectors tensor to file
         # Get the root directory of the repo
-        torch.save(rotated_vectors, r"c:\Users\Andres.DESKTOP-D77KM25\Documents\assignment1-basics\printsdebug\rotated_vectors.pt")
+        # torch.save(rotated_vectors, r"c:\Users\Andres.DESKTOP-D77KM25\Documents\assignment1-basics\printsdebug\rotated_vectors.pt")
         
         return rotated_vectors
 

@@ -21,8 +21,8 @@ def parse_arguments():
  
     # Training name and data paths
     parser.add_argument("--name", type=str, default="default_training", help="Name of the training run.")
-    parser.add_argument("--training_data_path", type=str, default=r"C:\Users\Andres.DESKTOP-D77KM25\OneDrive - Stanford\2021 - 2025\2023-2024\Spring\CS336 -  LLMs scratch\Assignments\Assignment 1\repo-july24\data\TinyStoriesV2-GPT4-train.txt", help="Path to the training data file.")
-    parser.add_argument("--validation_data_path", type=str, default=r"C:\Users\Andres.DESKTOP-D77KM25\OneDrive - Stanford\2021 - 2025\2023-2024\Spring\CS336 -  LLMs scratch\Assignments\Assignment 1\repo-july24\data\TinyStoriesV2-GPT4-valid.txt", help="Path to the validation data file.")
+    parser.add_argument("--training_data_path", type=str, default="data/TinyStoriesV2-GPT4-train.txt", help="Path to the training data file.")
+    parser.add_argument("--validation_data_path", type=str, default="data/TinyStoriesV2-GPT4-valid.txt", help="Path to the validation data file.")
     
     # Hardware parameters
     parser.add_argument("--device", type=parse_device, default="cuda", help="Device to run the model on.")

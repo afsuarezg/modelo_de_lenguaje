@@ -1,8 +1,8 @@
 otros/
 wandb/
 results/*.bin
-printsdebug/*
-
+printsdebug/
+data/*
 
 
 # Byte-compiled / optimized / DLL files
