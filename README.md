@@ -1,37 +1,40 @@
-# CS336 Spring 2025 Assignment 1: Basics
+# CS336 Primavera 2025 Tarea 1: Fundamentos
 
-For a full description of the assignment, see the assignment handout at
+## Descripción del Repositorio
+
+Este repositorio contiene la implementación de los fundamentos de un modelo de lenguaje basado en transformadores para la asignación CS336 de Stanford. Incluye implementaciones de tokenización BPE, bloques de transformadores, atención multi-cabeza, y componentes esenciales para el entrenamiento de modelos de lenguaje. El proyecto está diseñado para proporcionar una base sólida para comprender y trabajar con arquitecturas de transformadores modernas.
+
+Para una descripción completa de la tarea, consulta el documento de la asignación en
 [cs336_spring2025_assignment1_basics.pdf](./cs336_spring2025_assignment1_basics.pdf)
 
-If you see any issues with the assignment handout or code, please feel free to
-raise a GitHub issue or open a pull request with a fix.
+Si encuentras algún problema con el documento de la asignación o el código, no dudes en
+crear un issue en GitHub o abrir un pull request con una corrección.
 
-## Setup
+## Configuración
 
-### Environment
-We manage our environments with `uv` to ensure reproducibility, portability, and ease of use.
-Install `uv` [here](https://github.com/astral-sh/uv) (recommended), or run `pip install uv`/`brew install uv`.
-We recommend reading a bit about managing projects in `uv` [here](https://docs.astral.sh/uv/guides/projects/#managing-dependencies) (you will not regret it!).
+### Entorno
+Gestionamos nuestros entornos con `uv` para garantizar reproducibilidad, portabilidad y facilidad de uso.
+Instala `uv` [aquí](https://github.com/astral-sh/uv) (recomendado), o ejecuta `pip install uv`/`brew install uv`.
+Te recomendamos leer un poco sobre la gestión de proyectos en `uv` [aquí](https://docs.astral.sh/uv/guides/projects/#managing-dependencies) (¡no te arrepentirás!).
 
-You can now run any code in the repo using
+Ahora puedes ejecutar cualquier código en el repositorio usando
 ```sh
-uv run <python_file_path>
+uv run <ruta_del_archivo_python>
 ```
-and the environment will be automatically solved and activated when necessary.
+y el entorno se resolverá y activará automáticamente cuando sea necesario.
 
-### Run unit tests
-
+### Ejecutar pruebas unitarias
 
 ```sh
 uv run pytest
 ```
 
-Initially, all tests should fail with `NotImplementedError`s.
-To connect your implementation to the tests, complete the
-functions in [./tests/adapters.py](./tests/adapters.py).
+Inicialmente, todas las pruebas deberían fallar con `NotImplementedError`s.
+Para conectar tu implementación a las pruebas, completa las
+funciones en [./tests/adapters.py](./tests/adapters.py).
 
-### Download data
-Download the TinyStories data and a subsample of OpenWebText
+### Descargar datos
+Descarga los datos de TinyStories y una muestra de OpenWebText
 
 ``` sh
 mkdir -p data
